@@ -1,69 +1,32 @@
-import { GoogleGenAI } from "@google/genai";
 import { ClassificationRule } from "../types";
 
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  // In a real app, you would handle this more gracefully.
-  // For this environment, we assume the key is always available.
-  console.warn("API_KEY is not set. Gemini features will be disabled.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
-
-const translations: Record<string, string> = {
-    shape: 'forma',
-    color: 'color',
-    size: 'tamaño',
-    circle: 'círculo',
-    square: 'cuadrado',
-    triangle: 'triángulo',
-    rectangle: 'rectángulo',
-    red: 'rojo',
-    blue: 'azul',
-    yellow: 'amarillo',
-    small: 'pequeño',
-    large: 'grande',
-};
-
-function createRuleDescription(rule: ClassificationRule): string {
-    const descriptions = Object.entries(rule)
-        .map(([key, value]) => `${translations[key] || key}: ${translations[value] || value}`);
-    
-    if (descriptions.length === 0) return 'contiene figuras de todo tipo';
-    return 'contiene figuras con estas características: ' + descriptions.join(', ');
-}
+// Ya no necesitamos inicializar GoogleGenAI ni acceder a process.env aquí.
 
 export const getMagicBoxName = async (rule: ClassificationRule): Promise<string> => {
-    if (!API_KEY) {
-        return "¡Caja de Maravillas!";
-    }
-    
-    const ruleDescription = createRuleDescription(rule);
-
-    const prompt = `Eres un cuentacuentos creativo para niños de preescolar. Un niño acaba de ordenar un grupo de figuras en una caja. La regla para esta caja es que ${ruleDescription}.
-    
-    Da un nombre corto, divertido y mágico para esta caja.
-    
-    Ejemplos:
-    - Para 'color: rojo': El Cofre del Fuego del Dragón
-    - Para 'color: azul': La Caja de Gemas del Río
-    - Para 'forma: círculo': La Colección de Rocas Lunares
-    - Para 'tamaño: pequeño': Los Tesoros del Duende
-    
-    Sé muy creativo y que el nombre tenga de 3 a 5 palabras. No uses comillas en tu respuesta. Solo proporciona el nombre.`;
-    
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
+        // Hacemos una petición a nuestra función serverless de Netlify.
+        // Netlify automáticamente expone las funciones en la ruta /.netlify/functions/
+        const response = await fetch('/.netlify/functions/gemini', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ rule }),
         });
 
-        const text = response.text.trim();
-        return text || "¡Una Caja muy Especial!";
+        if (!response.ok) {
+            console.error("Error from Netlify function:", response.statusText);
+            // Si la función falla, devolvemos un nombre por defecto.
+            return "¡El Cofre Encantado!";
+        }
+
+        const data = await response.json();
+        // La función devuelve un objeto { name: '...' }
+        return data.name || "¡Una Caja muy Especial!";
+
     } catch (error) {
-        console.error("Error calling Gemini API:", error);
-        // Provide a graceful fallback
+        console.error("Error calling Netlify function:", error);
+        // Proporcionamos un fallback en caso de un error de red.
         return "¡El Cofre Encantado!";
     }
 };
