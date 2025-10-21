@@ -95,5 +95,9 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
     { id: 'MATCHING_GAME_WIN', name: 'Memoria Prodigiosa', description: 'Gana una partida en el Juego de Parejas.' },
     { id: 'ODD_ONE_OUT_WIN', name: 'Ojo de Águila', description: 'Gana una partida en El Duende Despistado.' },
     { id: 'ODD_ONE_OUT_PERFECT', name: 'Perfeccionista', description: 'Consigue una puntuación perfecta en El Duende Despistado.' },
+    { id: 'VENN_DIAGRAM_WIN', name: 'Explorador de Pozas', description: 'Completa el juego El Cruce Mágico.' },
+    { id: 'INVENTORY_BASIC_WIN', name: 'Ayudante de Duende', description: 'Completa el Nivel Básico del Inventario.' },
+    { id: 'INVENTORY_MEDIUM_WIN', name: 'Artesano Habilidoso', description: 'Completa el Nivel Medio del Inventario.' },
+    { id: 'INVENTORY_EXPERT_WIN', name: 'Maestro Inventor', description: 'Completa el Nivel Experto del Inventario.' },
     { id: 'GEMINI_NAME', name: '¡Poder Mágico!', description: 'Usa la magia de la IA para nombrar una caja.' },
 ];

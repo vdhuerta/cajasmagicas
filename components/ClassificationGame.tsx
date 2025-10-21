@@ -157,12 +157,14 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
                      <AudioIcon className="w-5 h-5 text-slate-600" />
                    </button>
                 </div>
-                <button 
-                    onClick={onGoHome}
-                    className="px-6 py-3 bg-green-500 text-white font-bold rounded-lg shadow-lg hover:bg-green-600 transition"
-                >
-                    Elegir otro Nivel
-                </button>
+                <div className="flex justify-center">
+                  <button 
+                      onClick={onGoHome}
+                      className="px-6 py-3 bg-green-500 text-white font-bold rounded-lg shadow-lg hover:bg-green-600 transition"
+                  >
+                      Elegir otro Nivel
+                  </button>
+                </div>
             </div>
         </div>
       )}

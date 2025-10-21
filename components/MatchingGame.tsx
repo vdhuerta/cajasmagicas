@@ -105,7 +105,7 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
                      <AudioIcon className="w-5 h-5 text-slate-600" />
                    </button>
                 </div>
-                <div className="flex gap-4">
+                <div className="flex justify-center gap-4">
                     <button 
                         onClick={resetGame}
                         className="px-6 py-3 bg-sky-500 text-white font-bold rounded-lg shadow-lg hover:bg-sky-600 transition"

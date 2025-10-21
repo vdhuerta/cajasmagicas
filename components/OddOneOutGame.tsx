@@ -142,7 +142,7 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
               <div className="bg-white p-10 rounded-2xl shadow-2xl text-center">
                   <h3 className="text-4xl font-bold text-green-500 mb-4">{completionTitle}</h3>
                   <p className="text-lg text-slate-700 mb-6">{completionText}</p>
-                  <div className="flex gap-4">
+                  <div className="flex justify-center gap-4">
                       <button onClick={resetGame} className="px-6 py-3 bg-sky-500 text-white font-bold rounded-lg shadow-lg hover:bg-sky-600 transition">Jugar de Nuevo</button>
                       <button onClick={onGoHome} className="px-6 py-3 bg-gray-400 text-white font-bold rounded-lg shadow-lg hover:bg-gray-500 transition">Volver al Inicio</button>
                   </div>

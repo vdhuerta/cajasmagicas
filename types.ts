@@ -49,6 +49,14 @@ export interface GameLevel {
     isExpert?: boolean;
 }
 
+export type InventoryGameDifficulty = 'Básico' | 'Medio' | 'Experto';
+
+export interface InventoryOrder {
+    rule: ClassificationRule;
+    count: number;
+    description: string;
+}
+
 export interface Achievement {
     id: string;
     name: string;
@@ -69,4 +77,13 @@ export interface ActivityLogEntry {
   message: string;
   type: ActivityLogType;
   seen: boolean;
+}
+
+export type CareerOption = 'Educación Parvularia' | 'Pedagogía en Educación Diferencial' | 'Pedagogía en Educación Básica';
+
+export interface User {
+  email: string;
+  firstName: string;
+  lastName: string;
+  career: CareerOption;
 }
