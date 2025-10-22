@@ -1,4 +1,5 @@
-import React, { useState, useEffect, DragEvent } from 'react';
+
+import React, { useState, useEffect, DragEvent, useRef, useCallback } from 'react';
 import { DienesBlockType, Shape, Color, ActivityLogType } from '../types';
 import { ALL_DIENES_BLOCKS } from '../constants';
 import DienesBlock from './DienesBlock';
@@ -31,6 +32,7 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
   });
   const [isGameComplete, setIsGameComplete] = useState(false);
   const [draggedOverZone, setDraggedOverZone] = useState<VennZone | null>(null);
+  const zonesContainerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     startLevel();
@@ -38,8 +40,6 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
   
   useEffect(() => {
       const totalBlocksInZones = blocksInZones.circlesOnly.length + blocksInZones.blueOnly.length + blocksInZones.intersection.length;
-      // Only check for completion if the pile is empty AND there are blocks in the zones.
-      // This prevents the game from completing on the initial render.
       if (blocksInPile.length === 0 && totalBlocksInZones > 0 && !isGameComplete) {
           setIsGameComplete(true);
           onUnlockAchievement('VENN_DIAGRAM_WIN');
@@ -66,7 +66,7 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
       }
   };
 
-  const handleDrop = (zoneId: VennZone, block: DienesBlockType) => {
+  const handleDrop = useCallback((zoneId: VennZone, block: DienesBlockType) => {
     if (checkBlockRule(block, zoneId)) {
       setBlocksInPile(prev => prev.filter(b => b.id !== block.id));
       setBlocksInZones(prev => ({
@@ -80,7 +80,7 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
             setTimeout(() => blockElement.classList.remove('animate-shake'), 500);
         }
     }
-  };
+  }, []);
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>, zoneId: VennZone) => {
     e.preventDefault();
@@ -93,6 +93,44 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
     handleDrop(zoneId, blockData);
     setDraggedOverZone(null);
   }
+
+  useEffect(() => {
+    const el = zonesContainerRef.current;
+    if (!el) return;
+
+    const findZoneId = (target: EventTarget | null): VennZone | null => {
+         if (!(target instanceof HTMLElement)) return null;
+         const zoneEl = target.closest('[data-droptarget-id]');
+         return zoneEl ? zoneEl.getAttribute('data-droptarget-id') as VennZone : null;
+    }
+
+    const handleTouchDrop = (e: Event) => {
+        const zoneId = findZoneId(e.target);
+        if (zoneId) {
+            const customEvent = e as CustomEvent;
+            const block = JSON.parse(customEvent.detail.blockData);
+            handleDrop(zoneId, block);
+            setDraggedOverZone(null);
+        }
+    };
+    const handleTouchDragEnter = (e: Event) => {
+        const zoneId = findZoneId(e.target);
+        if (zoneId) setDraggedOverZone(zoneId);
+    };
+    const handleTouchDragLeave = () => {
+        setDraggedOverZone(null);
+    };
+    
+    el.addEventListener('touchdrop', handleTouchDrop);
+    el.addEventListener('touchdragenter', handleTouchDragEnter);
+    el.addEventListener('touchdragleave', handleTouchDragLeave);
+
+    return () => {
+        el.removeEventListener('touchdrop', handleTouchDrop);
+        el.removeEventListener('touchdragenter', handleTouchDragEnter);
+        el.removeEventListener('touchdragleave', handleTouchDragLeave);
+    };
+  }, [handleDrop]);
 
   const gameTitle = "El Cruce Mágico";
   const completionTitle = "¡Lo Lograste!";
@@ -127,10 +165,12 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
       )}
 
       {/* Venn Diagram Zones */}
-      <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-lime-50 rounded-2xl shadow-inner">
+      <div ref={zonesContainerRef} className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-lime-50 rounded-2xl shadow-inner">
         {(['circlesOnly', 'intersection', 'blueOnly'] as VennZone[]).map(zoneId => (
             <div
                 key={zoneId}
+                data-droptarget="true"
+                data-droptarget-id={zoneId}
                 onDragOver={(e) => handleDragOver(e, zoneId)}
                 onDragLeave={() => setDraggedOverZone(null)}
                 onDrop={(e) => onDrop(e, zoneId)}

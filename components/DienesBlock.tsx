@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { DienesBlockType, Shape, Size, Color, Thickness } from '../types';
 import { TAILWIND_COLORS } from '../constants';
@@ -101,6 +102,7 @@ const DienesBlock: React.FC<DienesBlockProps> = ({ block }) => {
       onDragStart={handleDragStart}
       className="cursor-grab active:cursor-grabbing transition-transform transform hover:scale-110"
       title={title}
+      data-block={JSON.stringify(block)}
     >
       <svg width={dimensions.w + edgeOffset} height={dimensions.h + edgeOffset} viewBox={`0 0 ${dimensions.w + edgeOffset} ${dimensions.h + edgeOffset}`} className={dropShadowClass}>
         {renderShape()}

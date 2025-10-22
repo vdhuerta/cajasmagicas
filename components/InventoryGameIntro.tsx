@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { CloseIcon } from './icons/CloseIcon';
 import { speakText } from '../utils/tts';
 import { AudioIcon } from './icons/AudioIcon';
-import { ToolsIcon } from './icons/ToolsIcon';
+import { ClipboardListIcon } from './icons/ClipboardListIcon';
 
 interface InventoryGameIntroProps {
   onStart: () => void;
@@ -19,7 +20,7 @@ const InventoryGameIntro: React.FC<InventoryGameIntroProps> = ({ onStart, onClos
       <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-lg md:max-w-2xl relative animate-fade-in-up text-center">
         <button onClick={onClose} className="absolute top-4 right-4 p-2 text-slate-500 hover:text-slate-800 transition z-10" aria-label="Cerrar"><CloseIcon /></button>
         
-        <ToolsIcon className="w-16 h-16 mx-auto text-lime-500 mb-4" />
+        <ClipboardListIcon className="w-16 h-16 mx-auto text-lime-500 mb-4" />
 
         <div className="flex items-center justify-center gap-3 mb-3">
             <h2 className="text-3xl font-bold text-lime-800">{title}</h2>

@@ -1,4 +1,5 @@
-import React, { useState, ReactNode } from 'react';
+
+import React, { useState, ReactNode, useRef, useEffect } from 'react';
 import { DienesBlockType } from '../types';
 import DienesBlock from './DienesBlock';
 import { speakText } from '../utils/tts';
@@ -14,6 +15,7 @@ interface MagicBoxProps {
 
 const MagicBox: React.FC<MagicBoxProps> = ({ id, label, onDrop, blocks, children }) => {
   const [isOver, setIsOver] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -37,8 +39,35 @@ const MagicBox: React.FC<MagicBoxProps> = ({ id, label, onDrop, blocks, children
       speakText(label);
   }
 
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const handleTouchDrop = (e: Event) => {
+        const customEvent = e as CustomEvent;
+        const blockData = JSON.parse(customEvent.detail.blockData);
+        onDrop(id, blockData);
+        setIsOver(false);
+    };
+
+    const handleTouchDragEnter = () => setIsOver(true);
+    const handleTouchDragLeave = () => setIsOver(false);
+
+    element.addEventListener('touchdrop', handleTouchDrop);
+    element.addEventListener('touchdragenter', handleTouchDragEnter);
+    element.addEventListener('touchdragleave', handleTouchDragLeave);
+
+    return () => {
+        element.removeEventListener('touchdrop', handleTouchDrop);
+        element.removeEventListener('touchdragenter', handleTouchDragEnter);
+        element.removeEventListener('touchdragleave', handleTouchDragLeave);
+    };
+  }, [id, onDrop]);
+
   return (
     <div
+      ref={ref}
+      data-droptarget="true"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

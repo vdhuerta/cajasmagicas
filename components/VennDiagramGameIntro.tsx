@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { CloseIcon } from './icons/CloseIcon';
 import { speakText } from '../utils/tts';
 import { AudioIcon } from './icons/AudioIcon';
-import { RiverIcon } from './icons/RiverIcon';
+import { VennDiagramIcon } from './icons/VennDiagramIcon';
 
 interface VennDiagramGameIntroProps {
   onStart: () => void;
@@ -19,7 +20,7 @@ const VennDiagramGameIntro: React.FC<VennDiagramGameIntroProps> = ({ onStart, on
       <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-lg md:max-w-2xl relative animate-fade-in-up text-center">
         <button onClick={onClose} className="absolute top-4 right-4 p-2 text-slate-500 hover:text-slate-800 transition z-10" aria-label="Cerrar"><CloseIcon /></button>
         
-        <RiverIcon className="w-16 h-16 mx-auto text-cyan-500 mb-4" />
+        <VennDiagramIcon className="w-16 h-16 mx-auto text-cyan-500 mb-4" />
 
         <div className="flex items-center justify-center gap-3 mb-3">
             <h2 className="text-3xl font-bold text-cyan-800">{title}</h2>

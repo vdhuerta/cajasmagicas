@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { GAME_LEVELS, SHAPES, COLORS, SIZES, THICKNESSES, TRANSLATIONS } from '../constants';
 import { speakText } from '../utils/tts';
 import { AudioIcon } from './icons/AudioIcon';
 import { CloseIcon } from './icons/CloseIcon';
-import { ClassificationRule } from '../types';
+import { ClassificationRule, User } from '../types';
 import { HelpIcon } from './icons/HelpIcon';
 
 interface ClassificationLevelModalProps {
@@ -11,6 +12,7 @@ interface ClassificationLevelModalProps {
   onStartExpertLevel: (rule: ClassificationRule) => void;
   onClose: () => void;
   completedLevels: Record<string, boolean>;
+  user: User | null;
 }
 
 const levelColors = [
@@ -101,7 +103,7 @@ const ExpertLevelCreator: React.FC<{onStart: (rule: ClassificationRule) => void}
 };
 
 
-const ClassificationLevelModal: React.FC<ClassificationLevelModalProps> = ({ onSelectLevel, onStartExpertLevel, onClose, completedLevels }) => {
+const ClassificationLevelModal: React.FC<ClassificationLevelModalProps> = ({ onSelectLevel, onStartExpertLevel, onClose, completedLevels, user }) => {
   const [showHelp, setShowHelp] = useState(false);
   const modalTitle = "Elige un Nivel";
   const modalSubtitle = "Cada nivel tiene un nuevo desafío de clasificación.";
@@ -121,16 +123,40 @@ const ClassificationLevelModal: React.FC<ClassificationLevelModalProps> = ({ onS
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {GAME_LEVELS.filter(l => !l.isExpert).map((level, index) => {
-            const colors = levelColors[index % levelColors.length];
             const isCompleted = completedLevels[level.name];
-            const buttonClasses = isCompleted ? 'bg-green-500 hover:bg-green-600' : `${colors.buttonBg} ${colors.buttonHover}`;
+            const isCompletedAndLoggedIn = !!(isCompleted && user);
+            const originalColors = levelColors[index % levelColors.length];
+
+            const colors = isCompletedAndLoggedIn
+              ? {
+                  cardBg: 'bg-slate-100',
+                  cardBorder: 'border-slate-200',
+                  titleText: 'text-slate-700',
+                  iconText: 'text-slate-500',
+                  iconHover: 'hover:bg-slate-200',
+                }
+              : originalColors;
+
+            let buttonClasses;
+            const buttonText = isCompleted ? 'Volver a Jugar' : 'Jugar Nivel';
+
+            if (isCompletedAndLoggedIn) {
+              buttonClasses = `bg-slate-200 hover:bg-slate-300 ${originalColors.titleText}`;
+            } else if (isCompleted) {
+              buttonClasses = 'bg-green-500 hover:bg-green-600 text-white';
+            } else {
+              buttonClasses = `${originalColors.buttonBg} ${originalColors.buttonHover} text-white`;
+            }
+            
+            const checkIconColor = isCompletedAndLoggedIn ? 'text-slate-500' : 'text-green-500';
+            
             return (
-              <div key={index} className={`${colors.cardBg} border ${colors.cardBorder} rounded-xl p-5 flex flex-col justify-between shadow-sm transition-opacity ${isCompleted ? 'opacity-75 hover:opacity-100' : ''}`}>
+              <div key={index} className={`${colors.cardBg} border ${colors.cardBorder} rounded-xl p-5 flex flex-col justify-between shadow-sm`}>
                 <div className='flex flex-col flex-grow'>
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className={`text-xl font-bold ${colors.titleText}`}>
                         {level.name}
-                        {isCompleted && <CheckCircleIcon className="w-6 h-6 inline-block ml-2 text-green-500" />}
+                        {isCompleted && <CheckCircleIcon className={`w-6 h-6 inline-block ml-2 ${checkIconColor}`} />}
                     </h3>
                     <button onClick={() => speakText(level.name)} className={`p-1 rounded-full ${colors.iconHover} transition`} aria-label={`Leer en voz alta: ${level.name}`}><AudioIcon className={`w-5 h-5 ${colors.iconText}`} /></button>
                   </div>
@@ -139,8 +165,8 @@ const ClassificationLevelModal: React.FC<ClassificationLevelModalProps> = ({ onS
                     <button onClick={() => speakText(level.description)} className={`p-1 rounded-full ${colors.iconHover} transition`} aria-label={`Leer en voz alta: ${level.description}`}><AudioIcon className={`w-5 h-5 ${colors.iconText}`} /></button>
                   </div>
                 </div>
-                <button onClick={() => onSelectLevel(index)} className={`mt-4 w-full px-6 py-3 ${buttonClasses} text-white font-bold rounded-lg shadow-md transition-transform transform hover:scale-105`}>
-                    {isCompleted ? 'Volver a Jugar' : 'Jugar Nivel'}
+                <button onClick={() => onSelectLevel(index)} className={`mt-4 w-full px-6 py-3 ${buttonClasses} font-bold rounded-lg shadow-md transition-transform transform hover:scale-105`}>
+                    {buttonText}
                 </button>
               </div>
             );

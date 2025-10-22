@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, DragEvent } from 'react';
+import React, { useState, useEffect, DragEvent, useRef, useCallback } from 'react';
 import { DienesBlockType, InventoryGameDifficulty, InventoryOrder, ClassificationRule, ActivityLogType, Shape, Color, Size, Thickness } from '../types';
 import { ALL_DIENES_BLOCKS, TRANSLATIONS } from '../constants';
 import DienesBlock from './DienesBlock';
@@ -57,13 +57,9 @@ const generateOrder = (difficulty: InventoryGameDifficulty): InventoryOrder => {
     
     const effectiveMaxCount = Math.min(difficultyParams.maxCount, maxPossibleCount);
 
-    // Define the valid range for the count.
-    // The lower bound is the minimum for the difficulty.
-    // The upper bound is the effective max count, but it should not be less than the lower bound.
     const lowerBound = difficultyParams.minCount;
     const upperBound = Math.max(lowerBound, effectiveMaxCount);
 
-    // Generate a random count within the safe, calculated range.
     const count = Math.floor(Math.random() * (upperBound - lowerBound + 1)) + lowerBound;
 
     // --- Description generation logic ---
@@ -75,7 +71,6 @@ const generateOrder = (difficulty: InventoryGameDifficulty): InventoryOrder => {
     if (tempRule.shape) {
         let shapeName = TRANSLATIONS[tempRule.shape];
         if (count > 1) {
-            // Simple pluralization for spanish
             if (shapeName.endsWith('o') || shapeName.endsWith('a')) {
                  shapeName = shapeName.slice(0, -1) + 'os';
             } else if (shapeName.endsWith('l')) {
@@ -135,10 +130,41 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
   const [isGameOver, setIsGameOver] = useState(false);
   const [feedback, setFeedback] = useState<{type: 'correct' | 'incorrect', message: string} | null>(null);
   const [isBasketOver, setIsBasketOver] = useState(false);
+  const basketRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     startNewRound();
   }, [round, difficulty]);
+  
+  const handleDropInBasket = useCallback((blockData: DienesBlockType) => {
+    setBlocksInPile(prev => prev.filter(b => b.id !== blockData.id));
+    setBlocksInBasket(prev => [...prev, blockData]);
+  }, []);
+
+  useEffect(() => {
+    const element = basketRef.current;
+    if (!element) return;
+
+    const handleTouchDrop = (e: Event) => {
+        const customEvent = e as CustomEvent;
+        const block = JSON.parse(customEvent.detail.blockData);
+        handleDropInBasket(block);
+        setIsBasketOver(false);
+    };
+
+    const handleTouchDragEnter = () => setIsBasketOver(true);
+    const handleTouchDragLeave = () => setIsBasketOver(false);
+    
+    element.addEventListener('touchdrop', handleTouchDrop);
+    element.addEventListener('touchdragenter', handleTouchDragEnter);
+    element.addEventListener('touchdragleave', handleTouchDragLeave);
+
+    return () => {
+        element.removeEventListener('touchdrop', handleTouchDrop);
+        element.removeEventListener('touchdragenter', handleTouchDragEnter);
+        element.removeEventListener('touchdragleave', handleTouchDragLeave);
+    };
+  }, [handleDropInBasket]);
 
   const startNewRound = () => {
     const order = generateOrder(difficulty);
@@ -179,7 +205,7 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
           let message = "¡Uy! Algo no está bien. ";
           if (!isCorrectCount) {
               message += `Necesito ${currentOrder.count} piezas, no ${blocksInBasket.length}.`;
-          } else { // It means an item is wrong
+          } else { 
               message += "Revisa bien las figuras que pusiste en la cesta.";
           }
           setFeedback({ type: 'incorrect', message });
@@ -187,13 +213,11 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
       }
   };
   
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+  const handleDragDrop = (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       setIsBasketOver(false);
       const blockData = JSON.parse(e.dataTransfer.getData('dienes-block')) as DienesBlockType;
-      
-      setBlocksInPile(prev => prev.filter(b => b.id !== blockData.id));
-      setBlocksInBasket(prev => [...prev, blockData]);
+      handleDropInBasket(blockData);
   };
   
   const moveFromBasketToPile = (block: DienesBlockType) => {
@@ -242,7 +266,9 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
         
         {/* Basket */}
         <div 
-            onDrop={handleDrop}
+            ref={basketRef}
+            data-droptarget="true"
+            onDrop={handleDragDrop}
             onDragOver={(e) => { e.preventDefault(); setIsBasketOver(true); }}
             onDragLeave={() => setIsBasketOver(false)}
             className={`flex-grow relative min-h-[200px] border-4 border-dashed rounded-2xl p-4 transition-colors duration-300 ${isBasketOver ? 'border-amber-400 bg-amber-100' : 'border-stone-400 bg-stone-100'}`}

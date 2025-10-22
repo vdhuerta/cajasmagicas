@@ -4,7 +4,7 @@ import ClassificationGame from './components/ClassificationGame';
 import MatchingGame from './components/MatchingGame';
 import { speakText } from './utils/tts';
 import ClassificationLevelModal from './components/ClassificationLevelModal';
-import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, User } from './types';
+import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, User, DienesBlockType } from './types';
 import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS } from './constants';
 import MatchingGameIntro from './components/MatchingGameIntro';
 import OddOneOutGame from './components/OddOneOutGame';
@@ -28,6 +28,13 @@ import { UserIcon } from './components/icons/UserIcon';
 import { LogoutIcon } from './components/icons/LogoutIcon';
 import LogoutConfirmationModal from './components/LogoutConfirmationModal';
 import ClearDataConfirmationModal from './components/ClearDataConfirmationModal';
+import { MagnifyingGlassIcon } from './components/icons/MagnifyingGlassIcon';
+import { ClassificationIcon } from './components/icons/ClassificationIcon';
+import { InstallIcon } from './components/icons/InstallIcon';
+import AddToHomeScreenModal from './components/AddToHomeScreenModal';
+import { PairsIcon } from './components/icons/PairsIcon';
+import { VennDiagramIcon } from './components/icons/VennDiagramIcon';
+import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
 
 type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory';
 
@@ -42,6 +49,8 @@ const App: React.FC = () => {
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showClearDataConfirm, setShowClearDataConfirm] = useState(false);
+  const [showAddToHomeScreenModal, setShowAddToHomeScreenModal] = useState(false);
+
 
   const [showTeachersGuide, setShowTeachersGuide] = useState(false);
   const [currentLevel, setCurrentLevel] = useState<GameLevel | null>(null);
@@ -87,6 +96,101 @@ const App: React.FC = () => {
   useEffect(() => {
       localStorage.setItem('completedLevels', JSON.stringify(completedLevels));
   }, [completedLevels]);
+  
+  useEffect(() => {
+    let draggedElement: HTMLElement | null = null;
+    let draggedBlockData: string | null = null;
+    let lastDropTarget: HTMLElement | null = null;
+
+    const getDraggable = (target: EventTarget | null): HTMLElement | null => {
+        if (!(target instanceof HTMLElement)) return null;
+        return target.closest('[draggable="true"]');
+    };
+    
+    const getDropTarget = (x: number, y: number): HTMLElement | null => {
+        const elementUnderTouch = document.elementFromPoint(x, y);
+        if (!(elementUnderTouch instanceof HTMLElement)) return null;
+        return elementUnderTouch.closest('[data-droptarget="true"]');
+    }
+
+    const touchStartHandler = (event: TouchEvent) => {
+        const draggable = getDraggable(event.target);
+
+        if (draggable) {
+            // Prevent scrolling and default behavior
+            event.preventDefault();
+
+            draggedElement = draggable;
+            draggedBlockData = draggable.getAttribute('data-block');
+
+            // Add visual feedback for dragging
+            draggedElement.style.opacity = '0.5';
+            draggedElement.style.transform = 'scale(1.1)';
+            draggedElement.style.zIndex = '1000';
+
+            document.addEventListener('touchmove', touchMoveHandler, { passive: false });
+            document.addEventListener('touchend', touchEndHandler, { passive: false });
+        }
+    };
+
+    const touchMoveHandler = (event: TouchEvent) => {
+        if (!draggedElement) return;
+        event.preventDefault(); 
+
+        const touch = event.touches[0];
+        const currentDropTarget = getDropTarget(touch.clientX, touch.clientY);
+
+        if (lastDropTarget && lastDropTarget !== currentDropTarget) {
+            lastDropTarget.dispatchEvent(new CustomEvent('touchdragleave', { bubbles: true }));
+        }
+
+        if (currentDropTarget && currentDropTarget !== lastDropTarget) {
+            currentDropTarget.dispatchEvent(new CustomEvent('touchdragenter', { bubbles: true }));
+        }
+        
+        lastDropTarget = currentDropTarget;
+    };
+
+    const touchEndHandler = (event: TouchEvent) => {
+        if (draggedElement) {
+            // Reset visual feedback
+            draggedElement.style.opacity = '1';
+            draggedElement.style.transform = 'scale(1)';
+            draggedElement.style.zIndex = '';
+
+            const touch = event.changedTouches[0];
+            const dropTarget = getDropTarget(touch.clientX, touch.clientY);
+
+            if (dropTarget && draggedBlockData) {
+                // Dispatch drop event
+                const dropEvent = new CustomEvent('touchdrop', {
+                    bubbles: true,
+                    detail: { blockData: draggedBlockData }
+                });
+                dropTarget.dispatchEvent(dropEvent);
+            }
+            
+            if(lastDropTarget) {
+                 lastDropTarget.dispatchEvent(new CustomEvent('touchdragleave', { bubbles: true }));
+            }
+        }
+        
+        // Cleanup
+        document.removeEventListener('touchmove', touchMoveHandler);
+        document.removeEventListener('touchend', touchEndHandler);
+        draggedElement = null;
+        draggedBlockData = null;
+        lastDropTarget = null;
+    };
+
+    document.addEventListener('touchstart', touchStartHandler, { passive: false });
+
+    return () => {
+        document.removeEventListener('touchstart', touchStartHandler);
+        document.removeEventListener('touchmove', touchMoveHandler);
+        document.removeEventListener('touchend', touchEndHandler);
+    };
+  }, []);
 
   const logActivity = (message: string, type: ActivityLogType) => {
       const newEntry: ActivityLogEntry = {
@@ -320,33 +424,38 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <button
                 onClick={handlePlayMatching}
-                className="px-8 py-4 bg-amber-400 text-white font-bold rounded-xl shadow-lg hover:bg-amber-500 transition-transform transform hover:scale-105"
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-amber-400 text-white font-bold rounded-xl shadow-lg hover:bg-amber-500 transition-transform transform hover:scale-105"
               >
-                Juego de Parejas
+                <PairsIcon className="w-7 h-7" />
+                <span>Juego de Parejas</span>
               </button>
               <button
                 onClick={handlePlayOddOneOut}
-                className="px-8 py-4 bg-teal-400 text-white font-bold rounded-xl shadow-lg hover:bg-teal-500 transition-transform transform hover:scale-105"
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-teal-400 text-white font-bold rounded-xl shadow-lg hover:bg-teal-500 transition-transform transform hover:scale-105"
               >
-                El Duende Despistado
+                <MagnifyingGlassIcon className="w-7 h-7" />
+                <span>El Duende Despistado</span>
               </button>
               <button
                 onClick={handlePlayVennDiagram}
-                className="px-8 py-4 bg-cyan-400 text-white font-bold rounded-xl shadow-lg hover:bg-cyan-500 transition-transform transform hover:scale-105"
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-cyan-400 text-white font-bold rounded-xl shadow-lg hover:bg-cyan-500 transition-transform transform hover:scale-105"
               >
-                El Cruce Mágico
+                <VennDiagramIcon className="w-7 h-7" />
+                <span>El Cruce Mágico</span>
               </button>
               <button
                 onClick={handlePlayInventory}
-                className="px-8 py-4 bg-lime-500 text-white font-bold rounded-xl shadow-lg hover:bg-lime-600 transition-transform transform hover:scale-105"
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-lime-500 text-white font-bold rounded-xl shadow-lg hover:bg-lime-600 transition-transform transform hover:scale-105"
               >
-                El Inventario del Duende
+                <ClipboardListIcon className="w-7 h-7" />
+                <span>El Inventario del Duende</span>
               </button>
               <button
                 onClick={handlePlayClassification}
-                className="px-8 py-4 bg-rose-400 text-white font-bold rounded-xl shadow-lg hover:bg-rose-500 transition-transform transform hover:scale-105"
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-rose-400 text-white font-bold rounded-xl shadow-lg hover:bg-rose-500 transition-transform transform hover:scale-105"
               >
-                Juego de Clasificación
+                <ClassificationIcon className="w-7 h-7" />
+                <span>Juego de Clasificación</span>
               </button>
             </div>
           </div>
@@ -422,6 +531,13 @@ const App: React.FC = () => {
               <BookOpenIcon />
               <span className="hidden sm:inline">Profesores</span>
             </button>
+            <button
+              onClick={() => setShowAddToHomeScreenModal(true)}
+              className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
+              aria-label="Instalar en tu dispositivo"
+            >
+              <InstallIcon />
+            </button>
              <button
               onClick={handleOpenLog}
               className="relative p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
@@ -473,6 +589,7 @@ const App: React.FC = () => {
           onStartExpertLevel={handleStartExpertLevel}
           onClose={() => setShowClassificationModal(false)}
           completedLevels={completedLevels}
+          user={user}
         />
       )}
       {showMatchingIntro && (
@@ -531,6 +648,9 @@ const App: React.FC = () => {
           onConfirm={confirmClearData}
           onCancel={() => setShowClearDataConfirm(false)}
         />
+      )}
+      {showAddToHomeScreenModal && (
+        <AddToHomeScreenModal onClose={() => setShowAddToHomeScreenModal(false)} />
       )}
     </div>
   );

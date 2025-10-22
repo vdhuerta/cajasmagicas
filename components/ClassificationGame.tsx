@@ -44,7 +44,8 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
 
   useEffect(() => {
     if (blocksInPile.length === 0 && Object.keys(blocksInBoxes).length > 0) {
-      const isCorrect = Object.entries(blocksInBoxes).every(([boxId, blocks]) => {
+      // FIX: Explicitly type `blocks` as `DienesBlockType[]` to resolve TypeScript inference issue.
+      const isCorrect = Object.entries(blocksInBoxes).every(([boxId, blocks]: [string, DienesBlockType[]]) => {
         const boxDef = gameLevel.boxes.find(b => b.id === boxId);
         if (!boxDef) return false;
         
