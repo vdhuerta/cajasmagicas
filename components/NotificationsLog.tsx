@@ -36,8 +36,11 @@ interface NotificationsLogProps {
 
 const NotificationsLog: React.FC<NotificationsLogProps> = ({ isOpen, onClose, onClear, logs }) => {
 
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString('es-ES', {
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -45,18 +48,15 @@ const NotificationsLog: React.FC<NotificationsLogProps> = ({ isOpen, onClose, on
 
   return (
     <>
-      {/* Overlay */}
       <div 
         className={`fixed inset-0 bg-black bg-opacity-40 z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
       
-      {/* Panel */}
       <div 
         className={`fixed top-0 right-0 h-full w-full max-w-sm bg-slate-50 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <div className="flex flex-col h-full">
-          {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-slate-200">
             <h2 className="text-xl font-bold text-slate-800">Registro de Actividad</h2>
             <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-800 transition rounded-full hover:bg-slate-200" aria-label="Cerrar">
@@ -64,7 +64,6 @@ const NotificationsLog: React.FC<NotificationsLogProps> = ({ isOpen, onClose, on
             </button>
           </div>
 
-          {/* Log List */}
           <div className="flex-grow p-4 overflow-y-auto space-y-3">
             {logs.length > 0 ? logs.map(log => (
               <div key={log.id} className="flex items-start gap-3 p-2 bg-white rounded-lg shadow-sm">
@@ -73,8 +72,14 @@ const NotificationsLog: React.FC<NotificationsLogProps> = ({ isOpen, onClose, on
                 </div>
                 <div className="flex-grow">
                   <p className="text-sm text-slate-700">{log.message}</p>
-                  <p className="text-xs text-slate-400">{formatTime(log.timestamp)}</p>
+                  <p className="text-xs text-slate-400">{formatTimestamp(log.timestamp)}</p>
                 </div>
+                {log.pointsEarned && (
+                    <div className="ml-auto text-right">
+                        <p className="font-bold text-green-600">+{log.pointsEarned}</p>
+                        <p className="text-xs text-slate-400">puntos</p>
+                    </div>
+                )}
               </div>
             )) : (
                 <div className="text-center text-slate-500 pt-10">
@@ -84,7 +89,6 @@ const NotificationsLog: React.FC<NotificationsLogProps> = ({ isOpen, onClose, on
             )}
           </div>
 
-          {/* Footer */}
           <div className="p-4 border-t border-slate-200">
             <button 
                 onClick={onClear}

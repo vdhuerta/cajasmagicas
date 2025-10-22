@@ -119,9 +119,10 @@ interface InventoryGameProps {
   onGoHome: () => void;
   onUnlockAchievement: (id: string) => void;
   logActivity: (message: string, type: ActivityLogType) => void;
+  addScore: (points: number, message: string) => void;
 }
 
-const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onUnlockAchievement, logActivity }) => {
+const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onUnlockAchievement, logActivity, addScore }) => {
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
   const [currentOrder, setCurrentOrder] = useState<InventoryOrder | null>(null);
@@ -130,6 +131,7 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
   const [isGameOver, setIsGameOver] = useState(false);
   const [feedback, setFeedback] = useState<{type: 'correct' | 'incorrect', message: string} | null>(null);
   const [isBasketOver, setIsBasketOver] = useState(false);
+  const [pointsAwarded, setPointsAwarded] = useState(0);
   const basketRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -194,10 +196,22 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
                   setRound(r => r + 1);
               } else {
                   setIsGameOver(true);
+                  let basePoints = 0;
+                  let achievementId: string | null = null;
+                  switch(difficulty) {
+                      case 'Básico': basePoints = 100; achievementId = 'INVENTORY_BASIC_WIN'; break;
+                      case 'Medio': basePoints = 150; achievementId = 'INVENTORY_MEDIUM_WIN'; break;
+                      case 'Experto': basePoints = 200; achievementId = 'INVENTORY_EXPERT_WIN'; break;
+                  }
+                  const totalPoints = newScore * basePoints;
+                  setPointsAwarded(totalPoints);
+                  if (totalPoints > 0) {
+                      addScore(totalPoints, `Completaste el Inventario (${difficulty})`);
+                  }
+                  if (achievementId) {
+                      onUnlockAchievement(achievementId);
+                  }
                   logActivity(`Juego del Inventario (${difficulty}) completado con ${newScore} aciertos.`, 'win');
-                  if (difficulty === 'Básico') onUnlockAchievement('INVENTORY_BASIC_WIN');
-                  if (difficulty === 'Medio') onUnlockAchievement('INVENTORY_MEDIUM_WIN');
-                  if (difficulty === 'Experto') onUnlockAchievement('INVENTORY_EXPERT_WIN');
               }
           }, 2000);
       } else {
@@ -243,7 +257,10 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
             <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
                 <div className="bg-white p-10 rounded-2xl shadow-2xl text-center">
                     <h3 className="text-4xl font-bold text-green-500 mb-4">{completionTitle}</h3>
-                    <p className="text-lg text-slate-700 mb-6">{completionText}</p>
+                    <p className="text-lg text-slate-700 mb-2">{completionText}</p>
+                    {pointsAwarded > 0 && (
+                        <p className="text-xl font-bold text-green-600 mb-6">+{pointsAwarded} puntos</p>
+                    )}
                     <div className="flex justify-center gap-4">
                         <button onClick={onGoHome} className="px-6 py-3 bg-sky-500 text-white font-bold rounded-lg shadow-lg hover:bg-sky-600 transition">Elegir otro Nivel</button>
                     </div>
@@ -264,7 +281,6 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
             </div>
         </div>
         
-        {/* Basket */}
         <div 
             ref={basketRef}
             data-droptarget="true"

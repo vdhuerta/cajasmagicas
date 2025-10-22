@@ -4,7 +4,7 @@ import ClassificationGame from './components/ClassificationGame';
 import MatchingGame from './components/MatchingGame';
 import { speakText } from './utils/tts';
 import ClassificationLevelModal from './components/ClassificationLevelModal';
-import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, User, DienesBlockType } from './types';
+import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType } from './types';
 import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS } from './constants';
 import MatchingGameIntro from './components/MatchingGameIntro';
 import OddOneOutGame from './components/OddOneOutGame';
@@ -35,6 +35,8 @@ import AddToHomeScreenModal from './components/AddToHomeScreenModal';
 import { PairsIcon } from './components/icons/PairsIcon';
 import { VennDiagramIcon } from './components/icons/VennDiagramIcon';
 import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
+import Ranking from './components/Ranking';
+import { supabase, isSupabaseConfigured, mapProfileDataToUserProfile } from './utils/supabaseClient';
 
 type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory';
 
@@ -50,7 +52,7 @@ const App: React.FC = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showClearDataConfirm, setShowClearDataConfirm] = useState(false);
   const [showAddToHomeScreenModal, setShowAddToHomeScreenModal] = useState(false);
-
+  const [showRanking, setShowRanking] = useState(false);
 
   const [showTeachersGuide, setShowTeachersGuide] = useState(false);
   const [currentLevel, setCurrentLevel] = useState<GameLevel | null>(null);
@@ -59,44 +61,54 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLogOpen, setIsLogOpen] = useState(false);
   
-  const [user, setUser] = useState<User | null>(null);
-
-  const [unlockedAchievements, setUnlockedAchievements] = useState<Record<string, boolean>>({});
-  const [completedLevels, setCompletedLevels] = useState<Record<string, boolean>>({});
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   
   const unseenLogsCount = activityLog.filter(log => !log.seen).length;
 
   useEffect(() => {
-    const savedAchievements = localStorage.getItem('unlockedAchievements');
-    if (savedAchievements) {
-      setUnlockedAchievements(JSON.parse(savedAchievements));
+    // Escuchar cambios de autenticación con Supabase
+    if (isSupabaseConfigured && supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) {
+          const { data: profileData, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profileData) {
+              const userProfile = mapProfileDataToUserProfile({ ...profileData, email: session.user.email });
+              setCurrentUser(userProfile);
+          } else if (error) {
+              console.error("Error fetching profile:", error.message);
+          }
+        } else {
+          setCurrentUser(null);
+        }
+      });
+      return () => subscription.unsubscribe();
     }
+  }, []);
+
+  useEffect(() => {
+    // Cargar el registro de actividad desde localStorage (se mantiene simple)
     const savedLog = localStorage.getItem('activityLog');
     if (savedLog) {
       setActivityLog(JSON.parse(savedLog));
     } else {
       logActivity('¡Bienvenido al Bosque Mágico!', 'system');
     }
-    const savedCompletedLevels = localStorage.getItem('completedLevels');
-    if (savedCompletedLevels) {
-        setCompletedLevels(JSON.parse(savedCompletedLevels));
-    }
-    const savedUser = localStorage.getItem('magicBoxUser');
-    if (savedUser) {
-        setUser(JSON.parse(savedUser));
-    }
   }, []);
   
   useEffect(() => {
+      // Guardar el registro de actividad en localStorage
       localStorage.setItem('activityLog', JSON.stringify(activityLog));
   }, [activityLog]);
 
-  useEffect(() => {
-      localStorage.setItem('completedLevels', JSON.stringify(completedLevels));
-  }, [completedLevels]);
-  
   useEffect(() => {
     let draggedElement: HTMLElement | null = null;
     let draggedBlockData: string | null = null;
@@ -115,19 +127,12 @@ const App: React.FC = () => {
 
     const touchStartHandler = (event: TouchEvent) => {
         const draggable = getDraggable(event.target);
-
         if (draggable) {
-            // Prevent scrolling and default behavior
-            event.preventDefault();
-
             draggedElement = draggable;
             draggedBlockData = draggable.getAttribute('data-block');
-
-            // Add visual feedback for dragging
             draggedElement.style.opacity = '0.5';
             draggedElement.style.transform = 'scale(1.1)';
             draggedElement.style.zIndex = '1000';
-
             document.addEventListener('touchmove', touchMoveHandler, { passive: false });
             document.addEventListener('touchend', touchEndHandler, { passive: false });
         }
@@ -136,46 +141,35 @@ const App: React.FC = () => {
     const touchMoveHandler = (event: TouchEvent) => {
         if (!draggedElement) return;
         event.preventDefault(); 
-
         const touch = event.touches[0];
         const currentDropTarget = getDropTarget(touch.clientX, touch.clientY);
-
         if (lastDropTarget && lastDropTarget !== currentDropTarget) {
             lastDropTarget.dispatchEvent(new CustomEvent('touchdragleave', { bubbles: true }));
         }
-
         if (currentDropTarget && currentDropTarget !== lastDropTarget) {
             currentDropTarget.dispatchEvent(new CustomEvent('touchdragenter', { bubbles: true }));
         }
-        
         lastDropTarget = currentDropTarget;
     };
 
     const touchEndHandler = (event: TouchEvent) => {
         if (draggedElement) {
-            // Reset visual feedback
             draggedElement.style.opacity = '1';
             draggedElement.style.transform = 'scale(1)';
             draggedElement.style.zIndex = '';
-
             const touch = event.changedTouches[0];
             const dropTarget = getDropTarget(touch.clientX, touch.clientY);
-
             if (dropTarget && draggedBlockData) {
-                // Dispatch drop event
                 const dropEvent = new CustomEvent('touchdrop', {
                     bubbles: true,
                     detail: { blockData: draggedBlockData }
                 });
                 dropTarget.dispatchEvent(dropEvent);
             }
-            
             if(lastDropTarget) {
                  lastDropTarget.dispatchEvent(new CustomEvent('touchdragleave', { bubbles: true }));
             }
         }
-        
-        // Cleanup
         document.removeEventListener('touchmove', touchMoveHandler);
         document.removeEventListener('touchend', touchEndHandler);
         draggedElement = null;
@@ -184,7 +178,6 @@ const App: React.FC = () => {
     };
 
     document.addEventListener('touchstart', touchStartHandler, { passive: false });
-
     return () => {
         document.removeEventListener('touchstart', touchStartHandler);
         document.removeEventListener('touchmove', touchMoveHandler);
@@ -192,26 +185,58 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const logActivity = (message: string, type: ActivityLogType) => {
+  const logActivity = (message: string, type: ActivityLogType, pointsEarned?: number) => {
       const newEntry: ActivityLogEntry = {
           id: Date.now(),
           timestamp: new Date().toISOString(),
           message,
           type,
-          seen: isLogOpen, // if log is open, mark as seen immediately
+          seen: isLogOpen,
+          pointsEarned,
       };
       setActivityLog(prev => [newEntry, ...prev]);
   };
 
-  const unlockAchievement = (achievementId: string) => {
-    if (unlockedAchievements[achievementId]) return;
+  const addScore = async (points: number, message: string) => {
+    if (!currentUser || points <= 0 || !supabase) return;
+
+    logActivity(message, 'win', points);
+
+    const newScore = currentUser.score + points;
+    const updatedUser = { ...currentUser, score: newScore };
+    setCurrentUser(updatedUser);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ score: newScore })
+      .eq('id', currentUser.id);
+
+    if (error) console.error("Error updating score:", error.message);
+    
+    const newNotification: Notification = {
+      id: Date.now(),
+      message: `¡Has ganado ${points} puntos!`,
+      achievementId: 'points_earned',
+    };
+    setNotifications(prev => [...prev, newNotification]);
+  };
+
+  const unlockAchievement = async (achievementId: string) => {
+    if (!currentUser || currentUser.unlockedAchievements[achievementId] || !supabase) return;
 
     const achievement = ALL_ACHIEVEMENTS.find(a => a.id === achievementId);
     if (!achievement) return;
 
-    const newUnlocked = { ...unlockedAchievements, [achievementId]: true };
-    setUnlockedAchievements(newUnlocked);
-    localStorage.setItem('unlockedAchievements', JSON.stringify(newUnlocked));
+    const newUnlocked = { ...currentUser.unlockedAchievements, [achievementId]: true };
+    const updatedUser = { ...currentUser, unlockedAchievements: newUnlocked };
+    setCurrentUser(updatedUser);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ unlocked_achievements: newUnlocked })
+      .eq('id', currentUser.id);
+
+    if (error) console.error("Error unlocking achievement:", error.message);
 
     const newNotification: Notification = {
       id: Date.now(),
@@ -222,17 +247,22 @@ const App: React.FC = () => {
     logActivity(`Logro desbloqueado: ${achievement.name}`, 'achievement');
   };
   
-  const handleLevelComplete = (levelName: string) => {
-      setCompletedLevels(prev => ({ ...prev, [levelName]: true }));
+  const handleLevelComplete = async (levelName: string) => {
+      if (!currentUser || !supabase) return;
+      const newCompleted = { ...currentUser.completedLevels, [levelName]: true };
+      const updatedUser = { ...currentUser, completedLevels: newCompleted };
+      setCurrentUser(updatedUser);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ completed_levels: newCompleted })
+        .eq('id', currentUser.id);
+      
+      if (error) console.error("Error completing level:", error.message);
   };
 
-  const handlePlayClassification = () => {
-    setShowClassificationModal(true);
-  };
-
-  const handlePlayMatching = () => {
-    setShowMatchingIntro(true);
-  };
+  const handlePlayClassification = () => setShowClassificationModal(true);
+  const handlePlayMatching = () => setShowMatchingIntro(true);
   
   const handleStartMatching = () => {
     setShowMatchingIntro(false);
@@ -240,30 +270,21 @@ const App: React.FC = () => {
     logActivity('Iniciado el Juego de Parejas', 'game');
   };
 
-  const handlePlayOddOneOut = () => {
-    setShowOddOneOutIntro(true);
-  };
-
+  const handlePlayOddOneOut = () => setShowOddOneOutIntro(true);
   const handleStartOddOneOut = () => {
     setShowOddOneOutIntro(false);
     setActiveGame('odd-one-out');
     logActivity('Iniciado El Duende Despistado', 'game');
   };
 
-  const handlePlayVennDiagram = () => {
-    setShowVennDiagramIntro(true);
-  };
-
+  const handlePlayVennDiagram = () => setShowVennDiagramIntro(true);
   const handleStartVennDiagram = () => {
     setShowVennDiagramIntro(false);
     setActiveGame('venn-diagram');
     logActivity('Iniciado El Cruce Mágico', 'game');
   };
 
-  const handlePlayInventory = () => {
-      setShowInventoryIntro(true);
-  };
-
+  const handlePlayInventory = () => setShowInventoryIntro(true);
   const handleStartInventory = () => {
       setShowInventoryIntro(false);
       setShowInventoryLevelModal(true);
@@ -322,7 +343,28 @@ const App: React.FC = () => {
       logActivity('Volviendo a la selección de nivel de Inventario', 'system');
   };
 
-  const navigate = (game: Game) => {
+  const navigate = async (game: Game | 'ranking') => {
+    if (game === 'ranking') {
+        if(supabase) {
+            const { data, error } = await supabase.from('profiles').select('first_name, last_name, career, score');
+            if(data) {
+                const mappedUsers = data.map(u => ({
+                    id: '', email: '',
+                    firstName: u.first_name,
+                    lastName: u.last_name,
+                    career: u.career,
+                    score: u.score,
+                    unlockedAchievements: {},
+                    completedLevels: {}
+                }));
+                setAllUsers(mappedUsers);
+            }
+        }
+        setShowRanking(true);
+        setIsMenuOpen(false);
+        logActivity('Viendo la Tabla de Clasificación', 'system');
+        return;
+    }
     setActiveGame(game);
     setIsMenuOpen(false);
     if (game === 'home') {
@@ -336,7 +378,6 @@ const App: React.FC = () => {
 
   const handleOpenLog = () => {
     setIsLogOpen(true);
-    // Mark all as seen when opening
     setActivityLog(prev => prev.map(log => ({ ...log, seen: true })));
   };
 
@@ -351,21 +392,11 @@ const App: React.FC = () => {
     setActivityLog([welcomeMessage]);
   };
   
-  const handleRegister = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem('magicBoxUser', JSON.stringify(userData));
-    setShowRegistrationModal(false);
-    logActivity(`Usuario ${userData.firstName} se ha registrado.`, 'system');
-  };
-
-  const handleLogout = () => {
-    setShowLogoutConfirm(true);
-  };
-
-  const confirmLogout = () => {
-    logActivity(`Usuario ${user?.firstName} ha cerrado sesión.`, 'system');
-    setUser(null);
-    localStorage.removeItem('magicBoxUser');
+  const confirmLogout = async () => {
+    if (!supabase) return;
+    logActivity(`Usuario ${currentUser?.firstName} ha cerrado sesión.`, 'system');
+    await supabase.auth.signOut();
+    setCurrentUser(null);
     setShowLogoutConfirm(false);
   };
   
@@ -374,10 +405,19 @@ const App: React.FC = () => {
     setShowClearDataConfirm(true);
   };
 
-  const confirmClearData = () => {
-    // Reset states
-    setUnlockedAchievements({});
-    setCompletedLevels({});
+  const confirmClearData = async () => {
+    if (!currentUser || !supabase) return;
+    
+    const updatedUser = { ...currentUser, unlockedAchievements: {}, completedLevels: {}, score: 0 };
+    setCurrentUser(updatedUser);
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ unlocked_achievements: {}, completed_levels: {}, score: 0 })
+        .eq('id', currentUser.id);
+
+    if(error) console.error("Error clearing data:", error.message);
+    
     const welcomeMessage: ActivityLogEntry = {
       id: Date.now(),
       timestamp: new Date().toISOString(),
@@ -386,32 +426,26 @@ const App: React.FC = () => {
       seen: true,
     };
     setActivityLog([welcomeMessage]);
-
-    // Clear localStorage
-    localStorage.removeItem('unlockedAchievements');
-    localStorage.removeItem('completedLevels');
     localStorage.removeItem('activityLog');
-
-    // Close modal and navigate home
     setShowClearDataConfirm(false);
     navigate('home');
-    logActivity('Todos los datos del juego han sido limpiados.', 'system');
+    logActivity('Todos los datos de tu cuenta han sido limpiados.', 'system');
   };
 
   const renderGame = () => {
     switch (activeGame) {
       case 'classification':
-        return currentLevel && <ClassificationGame gameLevel={currentLevel} onGoHome={handleChooseClassificationLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} onLevelComplete={handleLevelComplete} />;
+        return currentLevel && <ClassificationGame gameLevel={currentLevel} onGoHome={handleChooseClassificationLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} onLevelComplete={handleLevelComplete} addScore={addScore} completedLevels={currentUser?.completedLevels || {}} />;
       case 'matching':
-        return <MatchingGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} />;
+        return <MatchingGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
       case 'odd-one-out':
-        return <OddOneOutGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} />;
+        return <OddOneOutGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
       case 'venn-diagram':
-        return <VennDiagramGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} />;
+        return <VennDiagramGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completedLevels || {}} onLevelComplete={handleLevelComplete} />;
       case 'inventory':
-          return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} />;
+          return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
       case 'achievements':
-        return <Achievements unlockedAchievements={unlockedAchievements} />;
+        return <Achievements unlockedAchievements={currentUser?.unlockedAchievements || {}} />;
       case 'classification-games':
         const welcomeTitle = "Juegos de Clasificación";
         const welcomeText = "¡Ayuda a los duendes a ordenar sus figuras mágicas usando diferentes reglas!";
@@ -468,7 +502,6 @@ const App: React.FC = () => {
              <p className="text-xl text-slate-600 max-w-2xl md:max-w-4xl mb-12">Explora y aprende los secretos para pensar como un matemático.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Clasificación Card */}
                 <div 
                     onClick={() => setActiveGame('classification-games')}
                     className="p-8 bg-white/70 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer"
@@ -476,15 +509,11 @@ const App: React.FC = () => {
                     <h2 className="text-3xl font-bold text-rose-600 mb-3">Clasificación</h2>
                     <p className="text-slate-600">Aprende a agrupar objetos por sus características como color, forma y tamaño.</p>
                 </div>
-
-                {/* Seriación Card (Disabled) */}
                  <div className="p-8 bg-white/50 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg opacity-60 cursor-not-allowed">
                     <h2 className="text-3xl font-bold text-sky-600 mb-3">Seriación</h2>
                     <p className="text-slate-600">Ordena objetos en una secuencia lógica, como del más pequeño al más grande.</p>
                     <span className="inline-block mt-4 px-3 py-1 bg-sky-200 text-sky-800 text-sm font-semibold rounded-full">Próximamente</span>
                 </div>
-
-                {/* Conservación Card (Disabled) */}
                 <div className="p-8 bg-white/50 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg opacity-60 cursor-not-allowed">
                     <h2 className="text-3xl font-bold text-amber-600 mb-3">Conservación</h2>
                     <p className="text-slate-600">Descubre que la cantidad de algo no cambia aunque su forma sí lo haga.</p>
@@ -516,10 +545,11 @@ const App: React.FC = () => {
               <HomeIcon />
             </button>
             <h1 className="text-3xl font-bold text-sky-800">Cajas Mágicas</h1>
-            {user && (
-                <span className="hidden sm:block text-xl font-semibold text-rose-600">
-                    ¡Hola, {user.firstName}!
-                </span>
+            {currentUser && (
+                <div className="hidden sm:flex items-center gap-2 text-xl font-semibold text-rose-600">
+                    <span>¡Hola, {currentUser.firstName}!</span>
+                    <span className="px-3 py-1 bg-rose-100 text-rose-700 text-sm rounded-full">{currentUser.score.toLocaleString('es-ES')} pts</span>
+                </div>
             )}
         </div>
         <div className="flex items-center gap-2 md:gap-4">
@@ -549,9 +579,9 @@ const App: React.FC = () => {
                 </span>
               )}
             </button>
-            {user ? (
+            {currentUser ? (
                 <button
-                    onClick={handleLogout}
+                    onClick={() => setShowLogoutConfirm(true)}
                     className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-rose-100 transition"
                     aria-label="Cerrar sesión"
                 >
@@ -587,8 +617,8 @@ const App: React.FC = () => {
           onSelectLevel={handleSelectLevel}
           onStartExpertLevel={handleStartExpertLevel}
           onClose={() => setShowClassificationModal(false)}
-          completedLevels={completedLevels}
-          user={user}
+          completedLevels={currentUser?.completedLevels || {}}
+          user={currentUser}
         />
       )}
       {showMatchingIntro && (
@@ -633,7 +663,7 @@ const App: React.FC = () => {
       {showRegistrationModal && (
         <RegistrationModal
           onClose={() => setShowRegistrationModal(false)}
-          onRegister={handleRegister}
+          logActivity={logActivity}
         />
       )}
       {showLogoutConfirm && (
@@ -650,6 +680,13 @@ const App: React.FC = () => {
       )}
       {showAddToHomeScreenModal && (
         <AddToHomeScreenModal onClose={() => setShowAddToHomeScreenModal(false)} />
+      )}
+      {showRanking && (
+        <Ranking
+          users={allUsers}
+          currentUser={currentUser}
+          onClose={() => setShowRanking(false)}
+        />
       )}
     </div>
   );

@@ -77,13 +77,18 @@ export interface ActivityLogEntry {
   message: string;
   type: ActivityLogType;
   seen: boolean;
+  pointsEarned?: number;
 }
 
 export type CareerOption = 'Educación Parvularia' | 'Pedagogía en Educación Diferencial' | 'Pedagogía en Educación Básica';
 
-export interface User {
+export interface UserProfile {
+  id: string; // From supabase.auth.users
   email: string;
   firstName: string;
   lastName: string;
   career: CareerOption;
+  score: number;
+  unlockedAchievements: Record<string, boolean>;
+  completedLevels: Record<string, boolean>;
 }

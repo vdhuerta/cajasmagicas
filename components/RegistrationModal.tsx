@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
 import { CloseIcon } from './icons/CloseIcon';
-import { User, CareerOption } from '../types';
+import { CareerOption, ActivityLogType } from '../types';
+import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
 
 interface RegistrationModalProps {
   onClose: () => void;
-  onRegister: (user: User) => void;
+  logActivity: (message: string, type: ActivityLogType) => void;
 }
 
 const careerOptions: CareerOption[] = [
@@ -14,97 +15,129 @@ const careerOptions: CareerOption[] = [
     'Pedagogía en Educación Básica'
 ];
 
-const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, onRegister }) => {
+const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActivity }) => {
+  const [isLogin, setIsLogin] = useState(true);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [career, setCareer] = useState<CareerOption>(careerOptions[0]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !email || !career) {
-      setError('Por favor, completa todos los campos.');
-      return;
-    }
-    // Simple email validation
-    if (!/\S+@\S+\.\S+/.test(email)) {
-        setError('Por favor, introduce un correo electrónico válido.');
+    if (!supabase) {
+        setError('El servicio de base de datos no está configurado.');
         return;
     }
+
+    setLoading(true);
     setError('');
-    onRegister({ firstName, lastName, email, career });
+
+    if (isLogin) {
+      // Handle Login
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) setError(signInError.message);
+      else {
+        logActivity(`Usuario ${email} ha iniciado sesión.`, 'system');
+        onClose();
+      }
+    } else {
+      // Handle Sign Up
+      if (!firstName || !lastName) {
+          setError('Nombres y apellidos son requeridos para crear una cuenta.');
+          setLoading(false);
+          return;
+      }
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            career: career,
+          }
+        }
+      });
+
+      if (signUpError) {
+        setError(signUpError.message);
+      } else if (data.user) {
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+                id: data.user.id,
+                email: data.user.email,
+                first_name: firstName,
+                last_name: lastName,
+                career: career,
+                score: 0,
+                unlocked_achievements: {},
+                completed_levels: {}
+            });
+        
+        if (profileError) {
+            setError(profileError.message);
+        } else {
+            logActivity(`Nueva cuenta creada para ${firstName}.`, 'system');
+            onClose();
+        }
+      }
+    }
+    setLoading(false);
   };
 
   return (
     <div className="fixed inset-0 bg-slate-800 bg-opacity-60 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
       <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-md relative animate-fade-in-up">
         <button onClick={onClose} className="absolute top-4 right-4 p-2 text-slate-500 hover:text-slate-800 transition z-10" aria-label="Cerrar"><CloseIcon /></button>
-        <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-sky-800">Crea tu Cuenta</h2>
-          <p className="text-slate-600 mt-2">¡Únete a la aventura del Bosque Mágico!</p>
+        <div className="text-center mb-4">
+          <h2 className="text-3xl font-bold text-sky-800">{isLogin ? 'Iniciar Sesión' : 'Crea tu Cuenta'}</h2>
+          <p className="text-slate-600 mt-2">{isLogin ? '¡Qué bueno verte de nuevo!' : '¡Únete a la aventura del Bosque Mágico!'}</p>
         </div>
         
-        <div className="mb-6 p-3 bg-sky-50 border border-sky-200 rounded-lg text-center">
-          <p className="text-sm text-sky-800">
-            Al crear una cuenta, guardaremos tu progreso, desbloquearás logros y podrás acceder a recompensas especiales. ¡Tu aventura será única!
-          </p>
+        <div className="flex justify-center mb-6">
+            <div className="p-1 bg-slate-100 rounded-lg flex items-center space-x-1">
+                <button onClick={() => setIsLogin(true)} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${isLogin ? 'bg-white shadow' : 'text-slate-600'}`}>Iniciar Sesión</button>
+                <button onClick={() => setIsLogin(false)} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${!isLogin ? 'bg-white shadow' : 'text-slate-600'}`}>Crear Cuenta</button>
+            </div>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="firstName" className="block text-sm font-medium text-slate-700">Nombres</label>
-            <input
-              type="text"
-              id="firstName"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-slate-700">Apellidos</label>
-            <input
-              type="text"
-              id="lastName"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-              required
-            />
-          </div>
+        
+        <form onSubmit={handleAuth} className="space-y-4">
+          {!isLogin && (
+            <>
+              <div>
+                <label htmlFor="firstName" className="block text-sm font-medium text-slate-700">Nombres</label>
+                <input type="text" id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500" required={!isLogin} />
+              </div>
+              <div>
+                <label htmlFor="lastName" className="block text-sm font-medium text-slate-700">Apellidos</label>
+                <input type="text" id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500" required={!isLogin} />
+              </div>
+            </>
+          )}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-700">Correo Electrónico</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-              required
-            />
+            <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500" required />
           </div>
-          <div>
-            <label htmlFor="career" className="block text-sm font-medium text-slate-700">Carrera</label>
-            <select
-              id="career"
-              value={career}
-              onChange={(e) => setCareer(e.target.value as CareerOption)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-            >
-              {careerOptions.map(option => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
+           <div>
+            <label htmlFor="password" className="block text-sm font-medium text-slate-700">Contraseña</label>
+            <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500" placeholder="Mínimo 6 caracteres" required />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {!isLogin && (
+            <div>
+              <label htmlFor="career" className="block text-sm font-medium text-slate-700">Carrera</label>
+              <select id="career" value={career} onChange={(e) => setCareer(e.target.value as CareerOption)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500">
+                {careerOptions.map(option => (<option key={option} value={option}>{option}</option>))}
+              </select>
+            </div>
+          )}
+          {error && <p className="text-sm text-red-600 text-center">{error}</p>}
           <div>
-            <button
-              type="submit"
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
-            >
-              Registrarse
+            <button type="submit" disabled={loading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:bg-slate-400">
+              {loading ? 'Procesando...' : (isLogin ? 'Entrar' : 'Crear Cuenta')}
             </button>
           </div>
         </form>

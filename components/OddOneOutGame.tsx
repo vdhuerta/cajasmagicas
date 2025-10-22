@@ -40,9 +40,10 @@ interface OddOneOutGameProps {
   onGoHome: () => void;
   onUnlockAchievement: (id: string) => void;
   logActivity: (message: string, type: ActivityLogType) => void;
+  addScore: (points: number, message: string) => void;
 }
 
-const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchievement, logActivity }) => {
+const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore }) => {
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
   const [blocks, setBlocks] = useState<DienesBlockType[]>([]);
@@ -51,6 +52,7 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
   const [isGameOver, setIsGameOver] = useState(false);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [clickedBlockId, setClickedBlockId] = useState<string | null>(null);
+  const [pointsAwarded, setPointsAwarded] = useState(0);
 
   useEffect(() => {
     startNewRound();
@@ -74,6 +76,11 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
   
   const handleEndGame = (finalScore: number) => {
     setIsGameOver(true);
+    const points = finalScore * 100;
+    setPointsAwarded(points);
+    if (points > 0) {
+        addScore(points, `Obtuviste ${points} puntos en El Duende Despistado`);
+    }
     logActivity(`El Duende Despistado completado con una puntuación de ${finalScore}/${TOTAL_ROUNDS}`, 'win');
     onUnlockAchievement('ODD_ONE_OUT_WIN');
     if (finalScore === TOTAL_ROUNDS) {
@@ -87,11 +94,12 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
     setRound(1);
     setScore(0);
     setIsGameOver(false);
+    setPointsAwarded(0);
     startNewRound();
   };
 
   const handleBlockClick = (blockId: string) => {
-    if (feedback === 'correct') return; // Prevent clicking after correct answer
+    if (feedback === 'correct') return;
 
     setClickedBlockId(blockId);
 
@@ -141,7 +149,10 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
               <div className="bg-white p-10 rounded-2xl shadow-2xl text-center">
                   <h3 className="text-4xl font-bold text-green-500 mb-4">{completionTitle}</h3>
-                  <p className="text-lg text-slate-700 mb-6">{completionText}</p>
+                  <p className="text-lg text-slate-700 mb-2">{completionText}</p>
+                   {pointsAwarded > 0 && (
+                        <p className="text-xl font-bold text-green-600 mb-6">+{pointsAwarded} puntos</p>
+                    )}
                   <div className="flex justify-center gap-4">
                       <button onClick={resetGame} className="px-6 py-3 bg-sky-500 text-white font-bold rounded-lg shadow-lg hover:bg-sky-600 transition">Jugar de Nuevo</button>
                       <button onClick={onGoHome} className="px-6 py-3 bg-gray-400 text-white font-bold rounded-lg shadow-lg hover:bg-gray-500 transition">Volver al Inicio</button>

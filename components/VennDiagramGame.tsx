@@ -21,9 +21,12 @@ interface VennDiagramGameProps {
   onGoHome: () => void;
   onUnlockAchievement: (id: string) => void;
   logActivity: (message: string, type: ActivityLogType) => void;
+  addScore: (points: number, message: string) => void;
+  completedLevels: Record<string, boolean>;
+  onLevelComplete: (levelName: string) => void;
 }
 
-const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAchievement, logActivity }) => {
+const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, completedLevels, onLevelComplete }) => {
   const [blocksInPile, setBlocksInPile] = useState<DienesBlockType[]>([]);
   const [blocksInZones, setBlocksInZones] = useState<Record<VennZone, DienesBlockType[]>>({
     circlesOnly: [],
@@ -32,6 +35,7 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
   });
   const [isGameComplete, setIsGameComplete] = useState(false);
   const [draggedOverZone, setDraggedOverZone] = useState<VennZone | null>(null);
+  const [pointsAwarded, setPointsAwarded] = useState(0);
   const zonesContainerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -42,16 +46,24 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
       const totalBlocksInZones = blocksInZones.circlesOnly.length + blocksInZones.blueOnly.length + blocksInZones.intersection.length;
       if (blocksInPile.length === 0 && totalBlocksInZones > 0 && !isGameComplete) {
           setIsGameComplete(true);
-          onUnlockAchievement('VENN_DIAGRAM_WIN');
           logActivity('Juego "El Cruce Mágico" completado', 'win');
+          
+          if (!completedLevels['Venn Diagram']) {
+              const points = 400;
+              setPointsAwarded(points);
+              addScore(points, 'Completaste El Cruce Mágico por primera vez');
+              onUnlockAchievement('VENN_DIAGRAM_WIN');
+          }
+          onLevelComplete('Venn Diagram');
       }
-  }, [blocksInPile, blocksInZones, isGameComplete, onUnlockAchievement, logActivity]);
+  }, [blocksInPile, blocksInZones, isGameComplete, onUnlockAchievement, logActivity, addScore, completedLevels, onLevelComplete]);
 
   const startLevel = () => {
     const relevantBlocks = ALL_DIENES_BLOCKS.filter(b => b.shape === Shape.Circle || b.color === Color.Blue);
     setBlocksInPile(shuffleArray(relevantBlocks));
     setBlocksInZones({ circlesOnly: [], blueOnly: [], intersection: [] });
     setIsGameComplete(false);
+    setPointsAwarded(0);
   };
   
   const checkBlockRule = (block: DienesBlockType, zoneId: VennZone): boolean => {
@@ -155,7 +167,10 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
             <div className="bg-white p-10 rounded-2xl shadow-2xl text-center">
                 <h3 className="text-4xl font-bold text-green-500 mb-4">{completionTitle}</h3>
-                <p className="text-lg text-slate-700 mb-6">{completionText}</p>
+                <p className="text-lg text-slate-700 mb-2">{completionText}</p>
+                 {pointsAwarded > 0 && (
+                    <p className="text-xl font-bold text-green-600 mb-6">+{pointsAwarded} puntos</p>
+                )}
                 <div className="flex justify-center gap-4">
                     <button onClick={startLevel} className="px-6 py-3 bg-sky-500 text-white font-bold rounded-lg shadow-lg hover:bg-sky-600 transition">Jugar de Nuevo</button>
                     <button onClick={onGoHome} className="px-6 py-3 bg-gray-400 text-white font-bold rounded-lg shadow-lg hover:bg-gray-500 transition">Volver al Inicio</button>

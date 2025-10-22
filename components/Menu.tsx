@@ -6,9 +6,7 @@ import { SeriationIcon } from './icons/SeriationIcon';
 import { ConservationIcon } from './icons/ConservationIcon';
 import { TrashIcon } from './icons/TrashIcon';
 
-// The navigate function in App can handle a wider range of games,
-// but this menu only needs to navigate to these specific ones.
-type NavigatableGame = 'classification-games' | 'achievements';
+type NavigatableGame = 'classification-games' | 'achievements' | 'ranking';
 
 interface MenuProps {
   onNavigate: (game: NavigatableGame) => void;
@@ -53,6 +51,14 @@ const Menu: React.FC<MenuProps> = ({ onNavigate, onClearData }) => {
         >
           <StarIcon className="w-6 h-6 text-sky-600" />
           <span>Logros</span>
+        </button>
+
+        <button
+            onClick={() => onNavigate('ranking')}
+            className="w-full flex items-center gap-3 px-4 py-2 text-slate-700 hover:bg-sky-100 transition"
+        >
+            <SeriationIcon className="w-6 h-6 text-sky-600" />
+            <span>Ranking</span>
         </button>
         
         <div className="my-1 border-t border-slate-200"></div>

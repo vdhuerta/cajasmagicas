@@ -29,14 +29,17 @@ interface ClassificationGameProps {
   onUnlockAchievement: (id: string) => void;
   logActivity: (message: string, type: ActivityLogType) => void;
   onLevelComplete: (levelName: string) => void;
+  addScore: (points: number, message: string) => void;
+  completedLevels: Record<string, boolean>;
 }
 
-const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGoHome, onUnlockAchievement, logActivity, onLevelComplete }) => {
+const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGoHome, onUnlockAchievement, logActivity, onLevelComplete, addScore, completedLevels }) => {
   const [blocksInPile, setBlocksInPile] = useState<DienesBlockType[]>([]);
   const [blocksInBoxes, setBlocksInBoxes] = useState<Record<string, DienesBlockType[]>>({});
   const [magicBoxNames, setMagicBoxNames] = useState<Record<string, string>>({});
   const [generatingNameFor, setGeneratingNameFor] = useState<string | null>(null);
   const [isLevelComplete, setIsLevelComplete] = useState(false);
+  const [pointsAwarded, setPointsAwarded] = useState(0);
   
   useEffect(() => {
     startLevel(gameLevel);
@@ -44,16 +47,11 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
 
   useEffect(() => {
     if (blocksInPile.length === 0 && Object.keys(blocksInBoxes).length > 0) {
-      // FIX: Explicitly type `blocks` as `DienesBlockType[]` to resolve TypeScript inference issue.
       const isCorrect = Object.entries(blocksInBoxes).every(([boxId, blocks]: [string, DienesBlockType[]]) => {
         const boxDef = gameLevel.boxes.find(b => b.id === boxId);
         if (!boxDef) return false;
-        
-        // Dynamic logic for "Everything Else" box
         if (Object.keys(boxDef.rule).length === 0) {
-            const otherRules = gameLevel.boxes
-                .filter(b => Object.keys(b.rule).length > 0)
-                .map(b => b.rule);
+            const otherRules = gameLevel.boxes.filter(b => Object.keys(b.rule).length > 0).map(b => b.rule);
             return blocks.every(block => !otherRules.some(rule => checkBlockRule(block, rule)));
         }
         return blocks.every(block => checkBlockRule(block, boxDef.rule));
@@ -61,19 +59,33 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
 
       if (isCorrect && !isLevelComplete) {
         setIsLevelComplete(true);
-        onLevelComplete(gameLevel.name);
         logActivity(`Nivel completado: ${gameLevel.name}`, 'win');
-        if (gameLevel.name.includes("Nivel 1")) onUnlockAchievement('CLASSIFICATION_LVL_1');
-        if (gameLevel.name.includes("Nivel 2")) onUnlockAchievement('CLASSIFICATION_LVL_2');
-        if (gameLevel.name.includes("Nivel 3")) onUnlockAchievement('CLASSIFICATION_LVL_3');
-        if (gameLevel.name.includes("Nivel 4")) onUnlockAchievement('CLASSIFICATION_LVL_4');
-        if (gameLevel.isExpert) onUnlockAchievement('CLASSIFICATION_EXPERT');
+        
+        if (!completedLevels[gameLevel.name]) {
+            let points = 0;
+            let achievementId: string | null = null;
+            if (gameLevel.name.includes("Nivel 1")) { points = 100; achievementId = 'CLASSIFICATION_LVL_1'; }
+            if (gameLevel.name.includes("Nivel 2")) { points = 150; achievementId = 'CLASSIFICATION_LVL_2'; }
+            if (gameLevel.name.includes("Nivel 3")) { points = 200; achievementId = 'CLASSIFICATION_LVL_3'; }
+            if (gameLevel.name.includes("Nivel 4")) { points = 250; achievementId = 'CLASSIFICATION_LVL_4'; }
+            if (gameLevel.isExpert) { points = 300; achievementId = 'CLASSIFICATION_EXPERT'; }
+            
+            if (points > 0) {
+                setPointsAwarded(points);
+                addScore(points, `Completaste '${gameLevel.name}' por primera vez`);
+            }
+            if (achievementId) {
+                onUnlockAchievement(achievementId);
+            }
+        }
+        onLevelComplete(gameLevel.name);
       }
     }
-  }, [blocksInPile, blocksInBoxes, gameLevel, onUnlockAchievement, isLevelComplete, logActivity, onLevelComplete]);
+  }, [blocksInPile, blocksInBoxes, gameLevel, onUnlockAchievement, isLevelComplete, logActivity, onLevelComplete, addScore, completedLevels]);
 
   const startLevel = (levelData: GameLevel) => {
     setIsLevelComplete(false);
+    setPointsAwarded(0);
     setBlocksInPile(shuffleArray(ALL_DIENES_BLOCKS));
     const initialBoxes: Record<string, DienesBlockType[]> = {};
     levelData.boxes.forEach(box => {
@@ -88,7 +100,7 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
     const boxDef = gameLevel.boxes.find(b => b.id === boxId)!;
     let isCorrectDrop;
 
-    if (Object.keys(boxDef.rule).length === 0) { // This is the 'Everything Else' box
+    if (Object.keys(boxDef.rule).length === 0) {
         const otherRules = gameLevel.boxes.filter(b => Object.keys(b.rule).length > 0).map(b => b.rule);
         isCorrectDrop = !otherRules.some(rule => checkBlockRule(block, rule));
     } else {
@@ -129,7 +141,6 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
   const completionTitle = "¡Felicitaciones!";
   const completionText = "¡Ordenaste todas las figuras correctamente!";
   
-  // Dynamically set grid columns for medium screens based on number of boxes.
   const mdCols = gameLevel.boxes.length;
   const mdGridClass = `md:grid-cols-${mdCols > 1 ? Math.min(mdCols, 4) : 2}`;
 
@@ -152,12 +163,15 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
                      <AudioIcon className="w-7 h-7 text-amber-600" />
                    </button>
                 </div>
-                <div className="flex items-center justify-center gap-2 mb-6">
+                <div className="flex items-center justify-center gap-2 mb-2">
                   <p className="text-lg text-slate-700">{completionText}</p>
                    <button onClick={() => speakText(completionText)} className="p-2 rounded-full hover:bg-slate-100 transition" aria-label={`Leer en voz alta: ${completionText}`}>
                      <AudioIcon className="w-5 h-5 text-slate-600" />
                    </button>
                 </div>
+                {pointsAwarded > 0 && (
+                    <p className="text-xl font-bold text-green-600 mb-6">+{pointsAwarded} puntos</p>
+                )}
                 <div className="flex justify-center">
                   <button 
                       onClick={onGoHome}

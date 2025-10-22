@@ -7,7 +7,6 @@ import { AudioIcon } from './icons/AudioIcon';
 
 const PAIRS_COUNT = 8;
 
-// Fisher-Yates shuffle algorithm
 const shuffleArray = <T,>(array: T[]): T[] => {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
@@ -21,14 +20,17 @@ interface MatchingGameProps {
     onGoHome: () => void;
     onUnlockAchievement: (id: string) => void;
     logActivity: (message: string, type: ActivityLogType) => void;
+    addScore: (points: number, message: string) => void;
 }
 
-const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchievement, logActivity }) => {
+const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore }) => {
   const [cards, setCards] = useState<DienesBlockType[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [matchedPairs, setMatchedPairs] = useState<string[]>([]);
   const [isChecking, setIsChecking] = useState(false);
   const [isGameComplete, setIsGameComplete] = useState(false);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [pointsAwarded, setPointsAwarded] = useState(0);
 
   useEffect(() => {
     resetGame();
@@ -43,15 +45,24 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
     setMatchedPairs([]);
     setIsChecking(false);
     setIsGameComplete(false);
+    setPointsAwarded(0);
+    setStartTime(Date.now());
   };
   
   useEffect(() => {
       if (matchedPairs.length === PAIRS_COUNT && !isGameComplete) {
+          const endTime = Date.now();
+          const elapsedSeconds = startTime ? (endTime - startTime) / 1000 : 0;
+          const points = Math.max(100, 1000 - Math.floor(elapsedSeconds * 10));
+          
+          setPointsAwarded(points);
+          addScore(points, `Juego de Parejas completado en ${elapsedSeconds.toFixed(1)}s`);
+
           setIsGameComplete(true);
           logActivity('Juego de Parejas completado con éxito', 'win');
           onUnlockAchievement('MATCHING_GAME_WIN');
       }
-  }, [matchedPairs, onUnlockAchievement, isGameComplete, logActivity]);
+  }, [matchedPairs, onUnlockAchievement, isGameComplete, logActivity, addScore, startTime]);
 
   const handleCardClick = (index: number) => {
     if (isChecking || flippedIndices.includes(index) || matchedPairs.includes(cards[index].id)) {
@@ -99,12 +110,15 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
                     <AudioIcon className="w-7 h-7 text-green-600" />
                   </button>
                 </div>
-                <div className="flex items-center justify-center gap-2 mb-6">
+                <div className="flex items-center justify-center gap-2 mb-2">
                   <p className="text-lg text-slate-700">{completionText}</p>
                    <button onClick={() => speakText(completionText)} className="p-2 rounded-full hover:bg-slate-100 transition" aria-label={`Leer en voz alta: ${completionText}`}>
                      <AudioIcon className="w-5 h-5 text-slate-600" />
                    </button>
                 </div>
+                 {pointsAwarded > 0 && (
+                    <p className="text-xl font-bold text-green-600 mb-6">+{pointsAwarded} puntos</p>
+                )}
                 <div className="flex justify-center gap-4">
                     <button 
                         onClick={resetGame}
