@@ -525,11 +525,10 @@ const App: React.FC = () => {
         <div className="flex items-center gap-2 md:gap-4">
             <button
               onClick={() => setShowTeachersGuide(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-white text-slate-700 font-semibold rounded-lg shadow-sm hover:bg-sky-100 transition"
+              className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
               aria-label="Guía para Profesores"
             >
               <BookOpenIcon />
-              <span className="hidden sm:inline">Profesores</span>
             </button>
             <button
               onClick={() => setShowAddToHomeScreenModal(true)}
@@ -579,7 +578,7 @@ const App: React.FC = () => {
             </div>
         </div>
       </header>
-      <div className="w-full border-b-2 border-slate-200 mb-6"></div>
+      <div className="w-full border-b-2 border-sky-300 mb-6"></div>
       <main className="w-full h-[calc(100vh-140px)]">
         {renderGame()}
       </main>
