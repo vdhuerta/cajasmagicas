@@ -10,7 +10,7 @@ const supabaseAnonKey: string = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOi
 let supabase: SupabaseClient | null = null;
 
 // Solo intentar crear el cliente si las variables de entorno han sido reemplazadas.
-if (supabaseUrl !== 'URL_DE_TU_PROYECTO_SUPABASE' && supabaseAnonKey !== 'TU_CLAVE_PUBLICA_ANONIMA') {
+if (supabaseUrl !== 'https://blkmxffsdxgtzoautmqz.supabase.co' && supabaseAnonKey !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsa214ZmZzZHhndHpvYXV0bXF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMjE1ODcsImV4cCI6MjA3Njc5NzU4N30.axEq8nAp7yRRqu2qCvBnqrzM0MhGLef5PapCfhf5Fv8') {
     // Usamos un bloque try-catch para manejar errores en caso de que la URL sea inválida.
     try {
         supabase = createClient(supabaseUrl, supabaseAnonKey);
