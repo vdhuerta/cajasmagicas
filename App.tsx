@@ -36,7 +36,8 @@ import { PairsIcon } from './components/icons/PairsIcon';
 import { VennDiagramIcon } from './components/icons/VennDiagramIcon';
 import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
 import Ranking from './components/Ranking';
-import { supabase, isSupabaseConfigured, mapProfileDataToUserProfile } from './utils/supabaseClient';
+import { supabase } from './services/supabase';
+
 
 type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory';
 
@@ -63,35 +64,42 @@ const App: React.FC = () => {
   
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   
   const unseenLogsCount = activityLog.filter(log => !log.seen).length;
-
+  
   useEffect(() => {
-    // Escuchar cambios de autenticación con Supabase
-    if (isSupabaseConfigured && supabase) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session?.user) {
-          const { data: profileData, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (profileData) {
-              const userProfile = mapProfileDataToUserProfile({ ...profileData, email: session.user.email });
-              setCurrentUser(userProfile);
-          } else if (error) {
-              console.error("Error fetching profile:", error.message);
-          }
-        } else {
-          setCurrentUser(null);
-        }
-      });
-      return () => subscription.unsubscribe();
+    if (!supabase) {
+      setAuthLoading(false);
+      return;
     }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setAuthLoading(true);
+      if (session?.user) {
+        const { data: userProfile, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (error) {
+          console.error("Error fetching user profile:", error);
+          setCurrentUser(null);
+        } else {
+          setCurrentUser(userProfile as UserProfile);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -198,20 +206,18 @@ const App: React.FC = () => {
   };
 
   const addScore = async (points: number, message: string) => {
-    if (!currentUser || points <= 0 || !supabase) return;
+    if (!supabase || !currentUser || points <= 0) return;
 
     logActivity(message, 'win', points);
 
     const newScore = currentUser.score + points;
-    const updatedUser = { ...currentUser, score: newScore };
-    setCurrentUser(updatedUser);
+    setCurrentUser(prev => prev ? { ...prev, score: newScore } : null);
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ score: newScore })
-      .eq('id', currentUser.id);
-
-    if (error) console.error("Error updating score:", error.message);
+    const { error } = await supabase.rpc('increment_score', { 
+        user_id_in: currentUser.id, 
+        points_in: points 
+    });
+    if (error) console.error("Error updating score:", error);
     
     const newNotification: Notification = {
       id: Date.now(),
@@ -222,21 +228,20 @@ const App: React.FC = () => {
   };
 
   const unlockAchievement = async (achievementId: string) => {
-    if (!currentUser || currentUser.unlockedAchievements[achievementId] || !supabase) return;
+    if (!supabase || !currentUser || currentUser.unlockedAchievements[achievementId]) return;
 
     const achievement = ALL_ACHIEVEMENTS.find(a => a.id === achievementId);
     if (!achievement) return;
 
     const newUnlocked = { ...currentUser.unlockedAchievements, [achievementId]: true };
-    const updatedUser = { ...currentUser, unlockedAchievements: newUnlocked };
-    setCurrentUser(updatedUser);
+    setCurrentUser(prev => prev ? { ...prev, unlockedAchievements: newUnlocked } : null);
 
     const { error } = await supabase
-      .from('profiles')
-      .update({ unlocked_achievements: newUnlocked })
+      .from('users')
+      .update({ unlockedAchievements: newUnlocked })
       .eq('id', currentUser.id);
 
-    if (error) console.error("Error unlocking achievement:", error.message);
+    if (error) console.error("Error unlocking achievement:", error);
 
     const newNotification: Notification = {
       id: Date.now(),
@@ -248,17 +253,17 @@ const App: React.FC = () => {
   };
   
   const handleLevelComplete = async (levelName: string) => {
-      if (!currentUser || !supabase) return;
-      const newCompleted = { ...currentUser.completedLevels, [levelName]: true };
-      const updatedUser = { ...currentUser, completedLevels: newCompleted };
-      setCurrentUser(updatedUser);
+      if (!supabase || !currentUser || currentUser.completedLevels[levelName]) return;
 
+      const newCompleted = { ...currentUser.completedLevels, [levelName]: true };
+      setCurrentUser(prev => prev ? { ...prev, completedLevels: newCompleted } : null);
+      
       const { error } = await supabase
-        .from('profiles')
-        .update({ completed_levels: newCompleted })
+        .from('users')
+        .update({ completedLevels: newCompleted })
         .eq('id', currentUser.id);
       
-      if (error) console.error("Error completing level:", error.message);
+      if (error) console.error("Error completing level:", error);
   };
 
   const handlePlayClassification = () => setShowClassificationModal(true);
@@ -345,20 +350,17 @@ const App: React.FC = () => {
 
   const navigate = async (game: Game | 'ranking') => {
     if (game === 'ranking') {
-        if(supabase) {
-            const { data, error } = await supabase.from('profiles').select('first_name, last_name, career, score');
-            if(data) {
-                const mappedUsers = data.map(u => ({
-                    id: '', email: '',
-                    firstName: u.first_name,
-                    lastName: u.last_name,
-                    career: u.career,
-                    score: u.score,
-                    unlockedAchievements: {},
-                    completedLevels: {}
-                }));
-                setAllUsers(mappedUsers);
-            }
+        if (!supabase) return;
+        const { data: users, error } = await supabase
+          .from('users')
+          .select('*')
+          .order('score', { ascending: false })
+          .limit(50);
+        
+        if (error) {
+          console.error("Error fetching ranking:", error);
+        } else {
+          setAllUsers(users as UserProfile[]);
         }
         setShowRanking(true);
         setIsMenuOpen(false);
@@ -395,7 +397,8 @@ const App: React.FC = () => {
   const confirmLogout = async () => {
     if (!supabase) return;
     logActivity(`Usuario ${currentUser?.firstName} ha cerrado sesión.`, 'system');
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error("Error signing out:", error);
     setCurrentUser(null);
     setShowLogoutConfirm(false);
   };
@@ -406,17 +409,24 @@ const App: React.FC = () => {
   };
 
   const confirmClearData = async () => {
-    if (!currentUser || !supabase) return;
+    if (!supabase || !currentUser) return;
+
+    const clearedProfile = {
+        score: 0,
+        unlockedAchievements: {},
+        completedLevels: {}
+    };
     
-    const updatedUser = { ...currentUser, unlockedAchievements: {}, completedLevels: {}, score: 0 };
-    setCurrentUser(updatedUser);
-
     const { error } = await supabase
-        .from('profiles')
-        .update({ unlocked_achievements: {}, completed_levels: {}, score: 0 })
-        .eq('id', currentUser.id);
+      .from('users')
+      .update(clearedProfile)
+      .eq('id', currentUser.id);
 
-    if(error) console.error("Error clearing data:", error.message);
+    if (error) {
+      console.error("Error clearing data:", error);
+    } else {
+      setCurrentUser(prev => prev ? { ...prev, ...clearedProfile } : null);
+    }
     
     const welcomeMessage: ActivityLogEntry = {
       id: Date.now(),
@@ -496,6 +506,13 @@ const App: React.FC = () => {
         );
       case 'home':
       default:
+        if (authLoading) {
+          return (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+                <p className="text-xl text-slate-600 animate-pulse">Cargando Bosque Mágico...</p>
+            </div>
+          );
+        }
         return (
           <div className="flex flex-col items-center justify-center h-full text-center">
              <h1 className="text-5xl font-bold text-sky-700 mb-4">¡Bienvenido al Bosque Mágico!</h1>
@@ -553,6 +570,12 @@ const App: React.FC = () => {
             )}
         </div>
         <div className="flex items-center gap-2 md:gap-4">
+            {!supabase && (
+                <div className="hidden sm:flex items-center gap-2 text-sm font-semibold text-amber-700 bg-amber-100 px-3 py-1 rounded-full" title="La conexión con la base de datos no está configurada. El progreso no se guardará.">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                    <span>Modo Local</span>
+                </div>
+            )}
             <button
               onClick={() => setShowTeachersGuide(true)}
               className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
@@ -579,7 +602,7 @@ const App: React.FC = () => {
                 </span>
               )}
             </button>
-            {currentUser ? (
+            {supabase && (currentUser ? (
                 <button
                     onClick={() => setShowLogoutConfirm(true)}
                     className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-rose-100 transition"
@@ -595,7 +618,7 @@ const App: React.FC = () => {
                 >
                     <UserIcon />
                 </button>
-            )}
+            ))}
             <div className="relative">
               <button
                   onClick={() => setIsMenuOpen(prev => !prev)}
@@ -604,7 +627,7 @@ const App: React.FC = () => {
               >
                   <HamburgerMenuIcon />
               </button>
-              {isMenuOpen && <Menu onNavigate={navigate} onClearData={handleClearData} />}
+              {isMenuOpen && <Menu onNavigate={navigate} onClearData={handleClearData} user={currentUser} />}
             </div>
         </div>
       </header>

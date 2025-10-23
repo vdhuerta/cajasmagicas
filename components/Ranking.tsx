@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { UserProfile } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -12,7 +11,6 @@ interface RankingProps {
 }
 
 const Ranking: React.FC<RankingProps> = ({ users, currentUser, onClose }) => {
-  const sortedUsers = [...users].sort((a, b) => b.score - a.score);
   
   const getRankColor = (rank: number) => {
       if (rank === 0) return 'text-amber-500 bg-amber-100'; // Gold
@@ -38,10 +36,10 @@ const Ranking: React.FC<RankingProps> = ({ users, currentUser, onClose }) => {
         
         <div className="flex-grow overflow-y-auto pr-2">
             <ul className="space-y-3">
-                {sortedUsers.map((user, index) => {
-                    const isCurrentUser = user.email === currentUser?.email;
+                {users.map((user, index) => {
+                    const isCurrentUser = user.id === currentUser?.id;
                     return (
-                        <li key={user.email} className={`flex items-center p-3 rounded-lg transition-all ${isCurrentUser ? 'bg-sky-100 border-2 border-sky-400 scale-105' : 'bg-white shadow-sm'}`}>
+                        <li key={user.id} className={`flex items-center p-3 rounded-lg transition-all ${isCurrentUser ? 'bg-sky-100 border-2 border-sky-400 scale-105' : 'bg-white shadow-sm'}`}>
                             <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${getRankColor(index)}`}>
                                 {index + 1}
                             </div>
@@ -55,7 +53,7 @@ const Ranking: React.FC<RankingProps> = ({ users, currentUser, onClose }) => {
                         </li>
                     );
                 })}
-                 {sortedUsers.length === 0 && (
+                 {users.length === 0 && (
                     <div className="text-center text-slate-500 pt-10">
                         <p>¡Aún no hay nadie en la clasificación!</p>
                         <p>Regístrate y juega para ser el primero.</p>

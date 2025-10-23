@@ -9,8 +9,8 @@ interface LogoutConfirmationModalProps {
 }
 
 const LogoutConfirmationModal: React.FC<LogoutConfirmationModalProps> = ({ onConfirm, onCancel }) => {
-  const title = "¡Espera un momento!";
-  const message = "Si cierras tu sesión, tu progreso y logros quedarán guardados en este dispositivo, pero ya no estarán asociados a tu nombre. ¿Estás seguro de que quieres salir?";
+  const title = "Cerrar Sesión";
+  const message = "¿Estás seguro de que quieres cerrar tu sesión? Tu progreso quedará guardado para la próxima vez que inicies sesión.";
 
   return (
     <div className="fixed inset-0 bg-slate-800 bg-opacity-60 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">

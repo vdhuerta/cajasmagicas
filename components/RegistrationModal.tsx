@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { CloseIcon } from './icons/CloseIcon';
-import { CareerOption, ActivityLogType } from '../types';
-import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
+import { CareerOption, ActivityLogType, UserProfile } from '../types';
+import { supabase } from '../services/supabase';
+
 
 interface RegistrationModalProps {
   onClose: () => void;
@@ -27,19 +28,24 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) {
-        setError('El servicio de base de datos no está configurado.');
-        return;
-    }
-
     setLoading(true);
     setError('');
 
+    if (!supabase) {
+        setError("Error de conexión: La base de datos no está configurada.");
+        setLoading(false);
+        return;
+    }
+
     if (isLogin) {
       // Handle Login
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) setError(signInError.message);
-      else {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError) {
+        setError(signInError.message);
+      } else {
         logActivity(`Usuario ${email} ha iniciado sesión.`, 'system');
         onClose();
       }
@@ -50,36 +56,30 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
           setLoading(false);
           return;
       }
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            career: career,
-          }
-        }
       });
 
       if (signUpError) {
         setError(signUpError.message);
-      } else if (data.user) {
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-                id: data.user.id,
-                email: data.user.email,
-                first_name: firstName,
-                last_name: lastName,
-                career: career,
-                score: 0,
-                unlocked_achievements: {},
-                completed_levels: {}
-            });
+      } else if (signUpData.user) {
+        // Create user profile in 'users' table
+        const newUserProfile: Omit<UserProfile, 'id'> & { id: string } = {
+            id: signUpData.user.id,
+            email: email,
+            firstName,
+            lastName,
+            career,
+            score: 0,
+            unlockedAchievements: {},
+            completedLevels: {}
+        };
         
-        if (profileError) {
-            setError(profileError.message);
+        const { error: insertError } = await supabase.from('users').insert(newUserProfile);
+        
+        if (insertError) {
+            setError(`Error al crear el perfil: ${insertError.message}`);
         } else {
             logActivity(`Nueva cuenta creada para ${firstName}.`, 'system');
             onClose();
