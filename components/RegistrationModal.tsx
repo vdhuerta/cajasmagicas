@@ -9,6 +9,7 @@ import { supabase } from '../services/supabase';
 interface RegistrationModalProps {
   onClose: () => void;
   logActivity: (message: string, type: ActivityLogType) => void;
+  initialView: 'login' | 'register';
 }
 
 const careerOptions: CareerOption[] = [
@@ -17,8 +18,8 @@ const careerOptions: CareerOption[] = [
     'Pedagogía en Educación Básica'
 ];
 
-const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActivity }) => {
-  const [isLogin, setIsLogin] = useState(true);
+const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActivity, initialView }) => {
+  const [isLogin, setIsLogin] = useState(initialView === 'login');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');

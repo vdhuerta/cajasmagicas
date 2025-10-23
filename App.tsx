@@ -66,6 +66,7 @@ const App: React.FC = () => {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [initialModalView, setInitialModalView] = useState<'login' | 'register'>('login');
   
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
@@ -376,6 +377,11 @@ const App: React.FC = () => {
       setShowInventoryLevelModal(true);
       logActivity('Volviendo a la selección de nivel de Inventario', 'system');
   };
+  
+  const handleOpenAuthModal = (view: 'login' | 'register') => {
+    setInitialModalView(view);
+    setShowRegistrationModal(true);
+  };
 
   const navigate = async (game: Game | 'ranking') => {
     if (game === 'ranking') {
@@ -631,7 +637,7 @@ const App: React.FC = () => {
                 </span>
               )}
             </button>
-            {supabase && (currentUser ? (
+            {currentUser ? (
                 <button
                     onClick={() => setShowLogoutConfirm(true)}
                     className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-rose-100 transition"
@@ -641,13 +647,13 @@ const App: React.FC = () => {
                 </button>
             ) : (
                 <button
-                    onClick={() => setShowRegistrationModal(true)}
+                    onClick={() => handleOpenAuthModal('login')}
                     className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
-                    aria-label="Registrarse"
+                    aria-label="Iniciar sesión o crear cuenta"
                 >
                     <UserIcon />
                 </button>
-            ))}
+            )}
             <div className="relative">
               <button
                   onClick={() => setIsMenuOpen(prev => !prev)}
@@ -716,6 +722,7 @@ const App: React.FC = () => {
         <RegistrationModal
           onClose={() => setShowRegistrationModal(false)}
           logActivity={logActivity}
+          initialView={initialModalView}
         />
       )}
       {showLogoutConfirm && (
