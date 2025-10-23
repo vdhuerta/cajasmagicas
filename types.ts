@@ -90,5 +90,5 @@ export interface UserProfile {
   career: CareerOption;
   score: number;
   unlockedAchievements: Record<string, boolean>;
-  completedLevels: Record<string, boolean>;
+  completed_levels: Record<string, boolean>;
 }

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import ClassificationGame from './components/ClassificationGame';
 import MatchingGame from './components/MatchingGame';
@@ -79,20 +80,44 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setAuthLoading(true);
       if (session?.user) {
-        const { data: userProfile, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (error) {
-          console.error("Error fetching user profile:", error);
-          setCurrentUser(null);
-        } else {
-          setCurrentUser(userProfile as UserProfile);
-        }
+          let profile: UserProfile | null = null;
+          let lastError: any = null;
+
+          // Iterative retry logic to handle race condition after registration
+          for (let i = 0; i < 4; i++) {
+              // Fetch as an array instead of a single object to handle potential duplicates.
+              const { data, error } = await supabase
+                  .from('usuarios')
+                  .select('*')
+                  .eq('id', session.user.id);
+              
+              if (data && data.length > 0) {
+                  // If duplicates exist, log a warning and use the first profile.
+                  if (data.length > 1) {
+                      console.warn(`Multiple profiles found for user ${session.user.id}. Using the first one.`);
+                  }
+                  profile = data[0];
+                  lastError = null;
+                  break; // Profile found, exit loop
+              }
+
+              lastError = error; // Store the last error
+              if (i < 3) { // Don't wait after the last attempt
+                  console.warn(`Profile not found, retrying... (${3 - i} attempts left)`);
+                  await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
+              }
+          }
+
+          if (profile) {
+              setCurrentUser(profile);
+          } else {
+              // The error message from supabase now comes from a different query type, so let's adjust the logging.
+              const errorMessage = lastError ? lastError.message : "Profile not found after multiple attempts.";
+              console.error("Failed to fetch user profile after retries:", errorMessage);
+              setCurrentUser(null);
+          }
       } else {
-        setCurrentUser(null);
+          setCurrentUser(null);
       }
       setAuthLoading(false);
     });
@@ -210,14 +235,18 @@ const App: React.FC = () => {
 
     logActivity(message, 'win', points);
 
-    const newScore = currentUser.score + points;
-    setCurrentUser(prev => prev ? { ...prev, score: newScore } : null);
+    const newScore = (currentUser.score || 0) + points;
+    
+    const { error } = await supabase
+      .from('usuarios')
+      .update({ score: newScore })
+      .eq('id', currentUser.id);
 
-    const { error } = await supabase.rpc('increment_score', { 
-        user_id_in: currentUser.id, 
-        points_in: points 
-    });
-    if (error) console.error("Error updating score:", error);
+    if (error) {
+      console.error("Error updating score:", error);
+    } else {
+      setCurrentUser(prev => prev ? { ...prev, score: newScore } : null);
+    }
     
     const newNotification: Notification = {
       id: Date.now(),
@@ -237,7 +266,7 @@ const App: React.FC = () => {
     setCurrentUser(prev => prev ? { ...prev, unlockedAchievements: newUnlocked } : null);
 
     const { error } = await supabase
-      .from('users')
+      .from('usuarios')
       .update({ unlockedAchievements: newUnlocked })
       .eq('id', currentUser.id);
 
@@ -253,14 +282,14 @@ const App: React.FC = () => {
   };
   
   const handleLevelComplete = async (levelName: string) => {
-      if (!supabase || !currentUser || currentUser.completedLevels[levelName]) return;
+      if (!supabase || !currentUser || currentUser.completed_levels[levelName]) return;
 
-      const newCompleted = { ...currentUser.completedLevels, [levelName]: true };
-      setCurrentUser(prev => prev ? { ...prev, completedLevels: newCompleted } : null);
+      const newCompleted = { ...currentUser.completed_levels, [levelName]: true };
+      setCurrentUser(prev => prev ? { ...prev, completed_levels: newCompleted } : null);
       
       const { error } = await supabase
-        .from('users')
-        .update({ completedLevels: newCompleted })
+        .from('usuarios')
+        .update({ completed_levels: newCompleted })
         .eq('id', currentUser.id);
       
       if (error) console.error("Error completing level:", error);
@@ -352,7 +381,7 @@ const App: React.FC = () => {
     if (game === 'ranking') {
         if (!supabase) return;
         const { data: users, error } = await supabase
-          .from('users')
+          .from('usuarios')
           .select('*')
           .order('score', { ascending: false })
           .limit(50);
@@ -414,11 +443,11 @@ const App: React.FC = () => {
     const clearedProfile = {
         score: 0,
         unlockedAchievements: {},
-        completedLevels: {}
+        completed_levels: {}
     };
     
     const { error } = await supabase
-      .from('users')
+      .from('usuarios')
       .update(clearedProfile)
       .eq('id', currentUser.id);
 
@@ -445,13 +474,13 @@ const App: React.FC = () => {
   const renderGame = () => {
     switch (activeGame) {
       case 'classification':
-        return currentLevel && <ClassificationGame gameLevel={currentLevel} onGoHome={handleChooseClassificationLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} onLevelComplete={handleLevelComplete} addScore={addScore} completedLevels={currentUser?.completedLevels || {}} />;
+        return currentLevel && <ClassificationGame gameLevel={currentLevel} onGoHome={handleChooseClassificationLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} onLevelComplete={handleLevelComplete} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} />;
       case 'matching':
         return <MatchingGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
       case 'odd-one-out':
         return <OddOneOutGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
       case 'venn-diagram':
-        return <VennDiagramGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completedLevels || {}} onLevelComplete={handleLevelComplete} />;
+        return <VennDiagramGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} onLevelComplete={handleLevelComplete} />;
       case 'inventory':
           return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
       case 'achievements':
@@ -640,7 +669,7 @@ const App: React.FC = () => {
           onSelectLevel={handleSelectLevel}
           onStartExpertLevel={handleStartExpertLevel}
           onClose={() => setShowClassificationModal(false)}
-          completedLevels={currentUser?.completedLevels || {}}
+          completedLevels={currentUser?.completed_levels || {}}
           user={currentUser}
         />
       )}

@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { CloseIcon } from './icons/CloseIcon';
 import { CareerOption, ActivityLogType, UserProfile } from '../types';
@@ -56,34 +57,29 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
           setLoading(false);
           return;
       }
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      
+      // Pasamos los datos del perfil en las opciones del signUp.
+      // Un "trigger" en la base de datos se encargará de crear el perfil automáticamente.
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            firstName,
+            lastName,
+            career,
+          },
+        },
       });
 
       if (signUpError) {
         setError(signUpError.message);
-      } else if (signUpData.user) {
-        // Create user profile in 'users' table
-        const newUserProfile: Omit<UserProfile, 'id'> & { id: string } = {
-            id: signUpData.user.id,
-            email: email,
-            firstName,
-            lastName,
-            career,
-            score: 0,
-            unlockedAchievements: {},
-            completedLevels: {}
-        };
-        
-        const { error: insertError } = await supabase.from('users').insert(newUserProfile);
-        
-        if (insertError) {
-            setError(`Error al crear el perfil: ${insertError.message}`);
-        } else {
-            logActivity(`Nueva cuenta creada para ${firstName}.`, 'system');
-            onClose();
-        }
+      } else {
+        // El perfil se crea automáticamente. El usuario recibirá un correo de confirmación.
+        logActivity(`Nueva cuenta creada para ${firstName}. Esperando confirmación por correo.`, 'system');
+        // Mostramos un mensaje importante al usuario.
+        alert('¡Registro exitoso! Revisa tu correo electrónico para confirmar tu cuenta antes de poder iniciar sesión.');
+        onClose();
       }
     }
     setLoading(false);
@@ -134,7 +130,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
               </select>
             </div>
           )}
-          {error && <p className="text-sm text-red-600 text-center">{error}</p>}
+          {error && <p className="text-sm text-red-600 text-center bg-red-50 p-3 rounded-md">{error}</p>}
           <div>
             <button type="submit" disabled={loading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 disabled:bg-slate-400">
               {loading ? 'Procesando...' : (isLogin ? 'Entrar' : 'Crear Cuenta')}
