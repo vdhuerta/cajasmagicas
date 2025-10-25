@@ -468,11 +468,24 @@ const App: React.FC = () => {
   
   const confirmLogout = async () => {
     if (!supabase) return;
-    logActivity(`Usuario ${currentUser?.firstName} ha cerrado sesión.`, 'system');
-    const { error } = await supabase.auth.signOut();
-    if (error) console.error("Error signing out:", error);
-    setCurrentUser(null);
+
+    // Close the confirmation modal.
     setShowLogoutConfirm(false);
+
+    // Attempt to sign out. The onAuthStateChange listener is the single
+    // source of truth and will update the UI once the session is terminated.
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Error signing out:", error);
+      logActivity(`Error al intentar cerrar sesión.`, 'system');
+    } else {
+      // The user is successfully signed out from Supabase.
+      // onAuthStateChange will now fire and set the user state to null.
+      // We can navigate home immediately.
+      logActivity(`Usuario ${currentUser?.firstName} ha cerrado sesión.`, 'system');
+      navigate('home');
+    }
   };
   
   const handleClearData = () => {
