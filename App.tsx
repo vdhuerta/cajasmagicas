@@ -395,7 +395,7 @@ const App: React.FC = () => {
         if (!supabase) return;
         const { data: users, error } = await supabase
           .from('usuarios')
-          .select('*')
+          .select('id, firstName, lastName, career, score')
           .order('score', { ascending: false })
           .limit(50);
         
