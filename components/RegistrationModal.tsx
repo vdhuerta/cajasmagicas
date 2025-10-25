@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { CloseIcon } from './icons/CloseIcon';
 import { CareerOption, ActivityLogType } from '../types';
@@ -54,58 +55,48 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
     setLoading(true);
     setError('');
 
-    if (!supabase) {
-        setError("Error de conexión: La base de datos no está configurada.");
-        setLoading(false);
-        return;
-    }
-
-    if (isLogin) {
-      // Handle Login
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (signInError) {
-        setError(translateSupabaseError(signInError.message));
-      } else {
-        logActivity(`Usuario ${email} ha iniciado sesión.`, 'system');
-        onClose();
-      }
-    } else {
-      // Handle Sign Up
-      if (!firstName || !lastName) {
-          setError('Nombres y apellidos son requeridos para crear una cuenta.');
-          setLoading(false);
-          return;
-      }
-      
-      // The robust way: sign up the user and pass their profile data in the `options.data` field.
-      // A database trigger (handle_new_user) will then securely create the profile.
-      // This avoids client-side race conditions and respects Row Level Security policies.
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            firstName: firstName,
-            lastName: lastName,
-            career: career,
-          }
+    try {
+        if (!supabase) {
+            throw new Error("Error de conexión: La base de datos no está configurada.");
         }
-      });
 
-      if (signUpError) {
-        setError(translateSupabaseError(signUpError.message));
-      } else {
-        // With the trigger in place, the profile will be created automatically.
-        // The onAuthStateChange listener in App.tsx will fetch the new profile.
-        // For an instant login experience, "Email confirmation" must be disabled in Supabase settings.
-        logActivity(`Nueva cuenta creada para ${firstName}. ¡Bienvenido!`, 'system');
-        onClose();
-      }
+        if (isLogin) {
+            // Handle Login
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+            if (signInError) throw signInError;
+            logActivity(`Usuario ${email} ha iniciado sesión.`, 'system');
+            onClose();
+        } else {
+            // Handle Sign Up
+            if (!firstName || !lastName) {
+                throw new Error('Nombres y apellidos son requeridos para crear una cuenta.');
+            }
+            
+            const { error: signUpError } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        firstName: firstName,
+                        lastName: lastName,
+                        career: career,
+                    }
+                }
+            });
+
+            if (signUpError) throw signUpError;
+            
+            logActivity(`Nueva cuenta creada para ${firstName}. ¡Bienvenido!`, 'system');
+            onClose();
+        }
+    } catch (err: any) {
+        setError(translateSupabaseError(err.message));
+    } finally {
+        setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

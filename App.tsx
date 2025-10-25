@@ -76,10 +76,11 @@ const App: React.FC = () => {
   const unseenLogsCount = activityLog.filter(log => !log.seen).length;
   
   useEffect(() => {
-    // Failsafe timer to catch hangs in the entire auth process
     const authTimeout = setTimeout(() => {
-        console.warn("Authentication check timed out after 10 seconds. Loading in guest mode.");
-        setAuthLoading(false);
+        if (authLoading) {
+            console.warn("Authentication check timed out after 10 seconds. Loading in guest mode.");
+            setAuthLoading(false);
+        }
     }, 10000);
 
     if (!supabase) {
@@ -92,30 +93,17 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
         try {
             if (session?.user) {
-                let profile: any | null = null;
-                let lastError: any = null;
+                // Simplified and more robust profile fetching.
+                const { data: profile, error } = await supabase
+                    .from('usuarios')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single(); // Use .single() to get one record or null.
 
-                // Retry logic to fetch profile, which might be needed due to replication delay after signup
-                for (let i = 0; i < 4; i++) {
-                    const { data, error } = await supabase
-                        .from('usuarios')
-                        .select('*')
-                        .eq('id', session.user.id);
-                    
-                    if (data && data.length > 0) {
-                        profile = data[0];
-                        lastError = null;
-                        break; 
-                    }
-
-                    lastError = error;
-                    // Wait with increasing delay before retrying
-                    if (i < 3) {
-                        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
-                    }
-                }
-
-                if (profile) {
+                if (error && error.code !== 'PGRST116') { // PGRST116: "exact one row not found" which is handled by profile being null
+                    console.error("Error fetching user profile:", error.message);
+                    setCurrentUser(null);
+                } else if (profile) {
                     const userProfile: UserProfile = {
                         id: profile.id,
                         email: profile.email,
@@ -128,30 +116,52 @@ const App: React.FC = () => {
                     };
                     setCurrentUser(userProfile);
                 } else {
-                    const errorMessage = lastError ? lastError.message : "Profile not found after multiple attempts.";
-                    console.error("Failed to fetch user profile:", errorMessage);
-                    setCurrentUser(null); // Ensure user is null if profile fetch fails
+                    // This is an important case: user is logged in but has no profile row.
+                    // Could be due to a delay or failure in the signup trigger. For now, we wait.
+                    // A better solution would be to create a profile here if it's missing for a certain time.
+                    console.warn(`No profile found for authenticated user: ${session.user.id}. This might be a new user.`);
+                    // Let's retry once after a short delay for new signups
+                    setTimeout(async () => {
+                        const { data: delayedProfile, error: delayedError } = await supabase
+                            .from('usuarios')
+                            .select('*')
+                            .eq('id', session.user.id)
+                            .single();
+                        if (delayedProfile) {
+                             const userProfile: UserProfile = {
+                                id: delayedProfile.id,
+                                email: delayedProfile.email,
+                                firstName: delayedProfile.firstName || 'Explorador',
+                                lastName: delayedProfile.lastName || '',
+                                career: delayedProfile.career || 'Educación Parvularia',
+                                score: delayedProfile.score ?? 0,
+                                unlockedAchievements: delayedProfile.unlockedAchievements || {},
+                                completed_levels: delayedProfile.completed_levels || {},
+                            };
+                            setCurrentUser(userProfile);
+                        } else {
+                            if(delayedError) console.error("Error on delayed profile fetch:", delayedError.message);
+                            setCurrentUser(null);
+                        }
+                    }, 2000);
                 }
             } else {
-                // No user session found
                 setCurrentUser(null);
             }
-        } catch (e) {
-            console.error("A critical error occurred during the authentication process:", e);
-            setCurrentUser(null); // Reset user state on critical error
+        } catch (e: any) {
+            console.error("A critical error occurred during the authentication state change:", e.message);
+            setCurrentUser(null);
         } finally {
-            // This block is guaranteed to execute once the try/catch is done.
-            clearTimeout(authTimeout); // The process finished, so we can clear the failsafe timer.
-            setAuthLoading(false);   // And we hide the loading screen.
+            clearTimeout(authTimeout);
+            setAuthLoading(false);
         }
     });
 
-    // Cleanup function for when the component unmounts
     return () => {
         subscription?.unsubscribe();
         clearTimeout(authTimeout);
     };
-}, []);
+  }, []);
 
   useEffect(() => {
     const logKey = currentUser ? `activityLog_${currentUser.id}` : 'activityLog_guest';
