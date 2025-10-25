@@ -535,11 +535,11 @@ const App: React.FC = () => {
       case 'classification':
         return currentLevel && <ClassificationGame gameLevel={currentLevel} onGoHome={handleChooseClassificationLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} onLevelComplete={handleLevelComplete} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} />;
       case 'matching':
-        return <MatchingGame onGoHome={() => navigate('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
+        return <MatchingGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
       case 'odd-one-out':
-        return <OddOneOutGame onGoHome={() => navigate('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
+        return <OddOneOutGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
       case 'venn-diagram':
-        return <VennDiagramGame onGoHome={() => navigate('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} onLevelComplete={handleLevelComplete} />;
+        return <VennDiagramGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} onLevelComplete={handleLevelComplete} />;
       case 'inventory':
           return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
       case 'achievements':
@@ -547,15 +547,6 @@ const App: React.FC = () => {
       case 'classification-games':
         const welcomeTitle = "Juegos de Clasificación";
         const welcomeText = "¡Ayuda a los duendes a ordenar sus figuras mágicas usando diferentes reglas!";
-        const isUserLoggedIn = !!currentUser;
-        const completed = currentUser?.completed_levels || {};
-
-        const isMatchingCompleted = isUserLoggedIn && completed['Matching Game'];
-        const isOddOneOutCompleted = isUserLoggedIn && completed['Odd One Out Game'];
-        const isVennCompleted = isUserLoggedIn && completed['Venn Diagram'];
-        const isInventoryCompleted = isUserLoggedIn && ['Inventory Game Básico', 'Inventory Game Medio', 'Inventory Game Experto'].every(l => completed[l]);
-        const isClassificationCompleted = isUserLoggedIn && ['Nivel 1: Colores', 'Nivel 2: Formas', 'Nivel 3: Tamaños', 'Nivel 4: Múltiples propiedades'].every(l => completed[l]);
-        
         return (
           <div className="flex flex-col items-center justify-center h-full text-center">
              <h1 className="text-5xl font-bold text-sky-700 mb-4">{welcomeTitle}</h1>
@@ -564,43 +555,38 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <button
                 onClick={() => setIntroGameKey('matching')}
-                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isMatchingCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-amber-400 hover:bg-amber-500'}`}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-amber-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-amber-500"
               >
                 <PairsIcon className="w-7 h-7" />
                 <span>Juego de Parejas</span>
-                 {isMatchingCompleted && <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>}
               </button>
               <button
                 onClick={() => setIntroGameKey('odd-one-out')}
-                 className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isOddOneOutCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-teal-400 hover:bg-teal-500'}`}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-teal-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-teal-500"
               >
                 <MagnifyingGlassIcon className="w-7 h-7" />
                 <span>El Duende Despistado</span>
-                 {isOddOneOutCompleted && <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>}
               </button>
               <button
                 onClick={() => setIntroGameKey('venn-diagram')}
-                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isVennCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-cyan-400 hover:bg-cyan-500'}`}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-cyan-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-cyan-500"
               >
                 <VennDiagramIcon className="w-7 h-7" />
                 <span>El Cruce Mágico</span>
-                {isVennCompleted && <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>}
               </button>
               <button
                 onClick={() => setIntroGameKey('inventory')}
-                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isInventoryCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-lime-500 hover:bg-lime-600'}`}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-lime-500 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-lime-600"
               >
                 <ClipboardListIcon className="w-7 h-7" />
                 <span>El Inventario del Duende</span>
-                 {isInventoryCompleted && <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>}
               </button>
               <button
                 onClick={() => setShowClassificationModal(true)}
-                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isClassificationCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-rose-400 hover:bg-rose-500'}`}
+                className="flex items-center justify-center gap-3 px-8 py-4 bg-rose-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-rose-500"
               >
                 <ClassificationIcon className="w-7 h-7" />
                 <span>Juego de Clasificación</span>
-                {isClassificationCompleted && <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>}
               </button>
             </div>
           </div>
