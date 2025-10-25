@@ -76,66 +76,82 @@ const App: React.FC = () => {
   const unseenLogsCount = activityLog.filter(log => !log.seen).length;
   
   useEffect(() => {
+    // Failsafe timer to catch hangs in the entire auth process
+    const authTimeout = setTimeout(() => {
+        console.warn("Authentication check timed out after 10 seconds. Loading in guest mode.");
+        setAuthLoading(false);
+    }, 10000);
+
     if (!supabase) {
-      setAuthLoading(false);
-      return;
+        console.warn("Supabase client not available. Running in local mode.");
+        clearTimeout(authTimeout);
+        setAuthLoading(false);
+        return;
     }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setAuthLoading(true);
-      if (session?.user) {
-          let profile: any | null = null;
-          let lastError: any = null;
+        try {
+            if (session?.user) {
+                let profile: any | null = null;
+                let lastError: any = null;
 
-          for (let i = 0; i < 4; i++) {
-              const { data, error } = await supabase
-                  .from('usuarios')
-                  .select('*')
-                  .eq('id', session.user.id);
-              
-              if (data && data.length > 0) {
-                  if (data.length > 1) {
-                      console.warn(`Multiple profiles found for user ${session.user.id}. Using the first one.`);
-                  }
-                  profile = data[0];
-                  lastError = null;
-                  break; 
-              }
+                // Retry logic to fetch profile, which might be needed due to replication delay after signup
+                for (let i = 0; i < 4; i++) {
+                    const { data, error } = await supabase
+                        .from('usuarios')
+                        .select('*')
+                        .eq('id', session.user.id);
+                    
+                    if (data && data.length > 0) {
+                        profile = data[0];
+                        lastError = null;
+                        break; 
+                    }
 
-              lastError = error;
-              if (i < 3) {
-                  console.warn(`Profile not found, retrying... (${3 - i} attempts left)`);
-                  await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
-              }
-          }
+                    lastError = error;
+                    // Wait with increasing delay before retrying
+                    if (i < 3) {
+                        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
+                    }
+                }
 
-          if (profile) {
-              // **FIX:** Sanitize the profile data to prevent crashes from null/undefined values.
-              const userProfile: UserProfile = {
-                id: profile.id,
-                email: profile.email,
-                firstName: profile.firstName || 'Explorador',
-                lastName: profile.lastName || '',
-                career: profile.career || 'Educación Parvularia',
-                score: profile.score ?? 0,
-                unlockedAchievements: profile.unlockedAchievements || {},
-                completed_levels: profile.completed_levels || {},
-              };
-              setCurrentUser(userProfile);
-          } else {
-              const errorMessage = lastError ? lastError.message : "Profile not found after multiple attempts.";
-              console.error("Failed to fetch user profile after retries:", errorMessage);
-              setCurrentUser(null);
-          }
-      } else {
-          setCurrentUser(null);
-      }
-      setAuthLoading(false);
+                if (profile) {
+                    const userProfile: UserProfile = {
+                        id: profile.id,
+                        email: profile.email,
+                        firstName: profile.firstName || 'Explorador',
+                        lastName: profile.lastName || '',
+                        career: profile.career || 'Educación Parvularia',
+                        score: profile.score ?? 0,
+                        unlockedAchievements: profile.unlockedAchievements || {},
+                        completed_levels: profile.completed_levels || {},
+                    };
+                    setCurrentUser(userProfile);
+                } else {
+                    const errorMessage = lastError ? lastError.message : "Profile not found after multiple attempts.";
+                    console.error("Failed to fetch user profile:", errorMessage);
+                    setCurrentUser(null); // Ensure user is null if profile fetch fails
+                }
+            } else {
+                // No user session found
+                setCurrentUser(null);
+            }
+        } catch (e) {
+            console.error("A critical error occurred during the authentication process:", e);
+            setCurrentUser(null); // Reset user state on critical error
+        } finally {
+            // This block is guaranteed to execute once the try/catch is done.
+            clearTimeout(authTimeout); // The process finished, so we can clear the failsafe timer.
+            setAuthLoading(false);   // And we hide the loading screen.
+        }
     });
 
+    // Cleanup function for when the component unmounts
     return () => {
-      subscription?.unsubscribe();
+        subscription?.unsubscribe();
+        clearTimeout(authTimeout);
     };
-  }, []);
+}, []);
 
   useEffect(() => {
     const logKey = currentUser ? `activityLog_${currentUser.id}` : 'activityLog_guest';
