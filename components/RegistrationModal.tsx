@@ -55,47 +55,55 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
     setLoading(true);
     setError('');
 
-    try {
-        if (!supabase) {
-            throw new Error("Error de conexión: La base de datos no está configurada.");
-        }
+    if (!supabase) {
+        setError("Error de conexión: La base de datos no está configurada.");
+        setLoading(false);
+        return;
+    }
 
-        if (isLogin) {
-            // Handle Login
-            const { error: signInError } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-            if (signInError) throw signInError;
+    if (isLogin) {
+        // Handle Login
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+
+        setLoading(false); // Update loading state immediately after await
+
+        if (signInError) {
+            setError(translateSupabaseError(signInError.message));
+        } else {
             logActivity(`Usuario ${email} ha iniciado sesión.`, 'system');
             onClose();
-        } else {
-            // Handle Sign Up
-            if (!firstName || !lastName) {
-                throw new Error('Nombres y apellidos son requeridos para crear una cuenta.');
-            }
-            
-            const { error: signUpError } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: {
-                        firstName: firstName,
-                        lastName: lastName,
-                        career: career,
-                    }
-                }
-            });
+        }
+    } else {
+        // Handle Sign Up
+        if (!firstName || !lastName) {
+            setError('Nombres y apellidos son requeridos para crear una cuenta.');
+            setLoading(false);
+            return;
+        }
 
-            if (signUpError) throw signUpError;
-            
+        const { error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    firstName: firstName,
+                    lastName: lastName,
+                    career: career,
+                }
+            }
+        });
+
+        setLoading(false); // Update loading state immediately after await
+
+        if (signUpError) {
+            setError(translateSupabaseError(signUpError.message));
+        } else {
             logActivity(`Nueva cuenta creada para ${firstName}. ¡Bienvenido!`, 'system');
             onClose();
         }
-    } catch (err: any) {
-        setError(translateSupabaseError(err.message));
-    } finally {
-        setLoading(false);
     }
   };
 
