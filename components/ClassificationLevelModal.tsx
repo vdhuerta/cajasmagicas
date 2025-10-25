@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { GAME_LEVELS, SHAPES, COLORS, SIZES, THICKNESSES, TRANSLATIONS } from '../constants';
 import { speakText } from '../utils/tts';
@@ -144,7 +145,7 @@ const ClassificationLevelModal: React.FC<ClassificationLevelModalProps> = ({ onS
             const buttonText = isCompleted ? 'Volver a Jugar' : 'Jugar Nivel';
 
             if (isCompletedAndLoggedIn) {
-              buttonClasses = `bg-slate-200 hover:bg-slate-300 ${originalColors.titleText}`;
+              buttonClasses = 'bg-slate-500 hover:bg-slate-600 text-white';
             } else if (isCompleted) {
               buttonClasses = 'bg-green-500 hover:bg-green-600 text-white';
             } else {

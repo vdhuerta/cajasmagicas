@@ -1,45 +1,50 @@
 
 
-
-
-import React, { useState, useEffect, ReactNode } from 'react';
-import ClassificationGame from './components/ClassificationGame';
-import MatchingGame from './components/MatchingGame';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { speakText } from './utils/tts';
-import ClassificationLevelModal from './components/ClassificationLevelModal';
 import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType } from './types';
 import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS } from './constants';
-import OddOneOutGame from './components/OddOneOutGame';
 import { HamburgerMenuIcon } from './components/icons/HamburgerMenuIcon';
-import Menu from './components/Menu';
-import Achievements from './components/Achievements';
 import NotificationContainer from './components/NotificationContainer';
 import { BookOpenIcon } from './components/icons/BookOpenIcon';
-import TeachersGuide from './components/TeachersGuide';
-import NotificationsLog from './components/NotificationsLog';
 import { BellIcon } from './components/icons/BellIcon';
 import { HomeIcon } from './components/icons/HomeIcon';
-import VennDiagramGame from './components/VennDiagramGame';
-import InventoryLevelModal from './components/InventoryLevelModal';
-import InventoryGame from './components/InventoryGame';
-import RegistrationModal from './components/RegistrationModal';
 import { UserIcon } from './components/icons/UserIcon';
 import { LogoutIcon } from './components/icons/LogoutIcon';
-import LogoutConfirmationModal from './components/LogoutConfirmationModal';
-import ClearDataConfirmationModal from './components/ClearDataConfirmationModal';
 import { MagnifyingGlassIcon } from './components/icons/MagnifyingGlassIcon';
 import { ClassificationIcon } from './components/icons/ClassificationIcon';
 import { InstallIcon } from './components/icons/InstallIcon';
-import AddToHomeScreenModal from './components/AddToHomeScreenModal';
 import { PairsIcon } from './components/icons/PairsIcon';
 import { VennDiagramIcon } from './components/icons/VennDiagramIcon';
 import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
-import Ranking from './components/Ranking';
 import { supabase } from './services/supabase';
-import GameIntroModal from './components/GameIntroModal';
 
+// Lazy load components for better performance
+const ClassificationGame = lazy(() => import('./components/ClassificationGame'));
+const MatchingGame = lazy(() => import('./components/MatchingGame'));
+const OddOneOutGame = lazy(() => import('./components/OddOneOutGame'));
+const VennDiagramGame = lazy(() => import('./components/VennDiagramGame'));
+const InventoryGame = lazy(() => import('./components/InventoryGame'));
+const Achievements = lazy(() => import('./components/Achievements'));
+const Menu = lazy(() => import('./components/Menu'));
+const ClassificationLevelModal = lazy(() => import('./components/ClassificationLevelModal'));
+const InventoryLevelModal = lazy(() => import('./components/InventoryLevelModal'));
+const TeachersGuide = lazy(() => import('./components/TeachersGuide'));
+const NotificationsLog = lazy(() => import('./components/NotificationsLog'));
+const RegistrationModal = lazy(() => import('./components/RegistrationModal'));
+const LogoutConfirmationModal = lazy(() => import('./components/LogoutConfirmationModal'));
+const ClearDataConfirmationModal = lazy(() => import('./components/ClearDataConfirmationModal'));
+const AddToHomeScreenModal = lazy(() => import('./components/AddToHomeScreenModal'));
+const Ranking = lazy(() => import('./components/Ranking'));
+const GameIntroModal = lazy(() => import('./components/GameIntroModal'));
 
 type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory';
+
+const GameLoading: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center">
+    <p className="text-xl text-slate-600 animate-pulse">Cargando juego...</p>
+  </div>
+);
 
 const App: React.FC = () => {
   const [activeGame, setActiveGame] = useState<Game>('home');
@@ -412,6 +417,10 @@ const App: React.FC = () => {
       logActivity('Navegando a la página de Inicio', 'system');
     } else if (game === 'achievements') {
       logActivity('Viendo el Salón de Logros', 'system');
+    } else if (game === 'classification-games') {
+        setCurrentLevel(null);
+        setCurrentInventoryLevel(null);
+        logActivity('Navegando a los juegos de clasificación', 'system');
     }
   };
 
@@ -526,18 +535,26 @@ const App: React.FC = () => {
       case 'classification':
         return currentLevel && <ClassificationGame gameLevel={currentLevel} onGoHome={handleChooseClassificationLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} onLevelComplete={handleLevelComplete} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} />;
       case 'matching':
-        return <MatchingGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
+        return <MatchingGame onGoHome={() => navigate('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
       case 'odd-one-out':
-        return <OddOneOutGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
+        return <OddOneOutGame onGoHome={() => navigate('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
       case 'venn-diagram':
-        return <VennDiagramGame onGoHome={() => navigate('home')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} onLevelComplete={handleLevelComplete} />;
+        return <VennDiagramGame onGoHome={() => navigate('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} onLevelComplete={handleLevelComplete} />;
       case 'inventory':
-          return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
+          return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
       case 'achievements':
         return <Achievements unlockedAchievements={currentUser?.unlockedAchievements || {}} />;
       case 'classification-games':
         const welcomeTitle = "Juegos de Clasificación";
         const welcomeText = "¡Ayuda a los duendes a ordenar sus figuras mágicas usando diferentes reglas!";
+        const isUserLoggedIn = !!currentUser;
+        const completed = currentUser?.completed_levels || {};
+
+        const isMatchingCompleted = isUserLoggedIn && completed['Matching Game'];
+        const isOddOneOutCompleted = isUserLoggedIn && completed['Odd One Out Game'];
+        const isVennCompleted = isUserLoggedIn && completed['Venn Diagram'];
+        const isInventoryCompleted = isUserLoggedIn && ['Inventory Game Básico', 'Inventory Game Medio', 'Inventory Game Experto'].every(l => completed[l]);
+        const isClassificationCompleted = isUserLoggedIn && ['Nivel 1: Colores', 'Nivel 2: Formas', 'Nivel 3: Tamaños', 'Nivel 4: Múltiples propiedades'].every(l => completed[l]);
         
         return (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -547,38 +564,43 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <button
                 onClick={() => setIntroGameKey('matching')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-amber-400 text-white font-bold rounded-xl shadow-lg hover:bg-amber-500 transition-transform transform hover:scale-105"
+                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isMatchingCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-amber-400 hover:bg-amber-500'}`}
               >
                 <PairsIcon className="w-7 h-7" />
                 <span>Juego de Parejas</span>
+                 {isMatchingCompleted && <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>}
               </button>
               <button
                 onClick={() => setIntroGameKey('odd-one-out')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-teal-400 text-white font-bold rounded-xl shadow-lg hover:bg-teal-500 transition-transform transform hover:scale-105"
+                 className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isOddOneOutCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-teal-400 hover:bg-teal-500'}`}
               >
                 <MagnifyingGlassIcon className="w-7 h-7" />
                 <span>El Duende Despistado</span>
+                 {isOddOneOutCompleted && <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>}
               </button>
               <button
                 onClick={() => setIntroGameKey('venn-diagram')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-cyan-400 text-white font-bold rounded-xl shadow-lg hover:bg-cyan-500 transition-transform transform hover:scale-105"
+                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isVennCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-cyan-400 hover:bg-cyan-500'}`}
               >
                 <VennDiagramIcon className="w-7 h-7" />
                 <span>El Cruce Mágico</span>
+                {isVennCompleted && <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>}
               </button>
               <button
                 onClick={() => setIntroGameKey('inventory')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-lime-500 text-white font-bold rounded-xl shadow-lg hover:bg-lime-600 transition-transform transform hover:scale-105"
+                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isInventoryCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-lime-500 hover:bg-lime-600'}`}
               >
                 <ClipboardListIcon className="w-7 h-7" />
                 <span>El Inventario del Duende</span>
+                 {isInventoryCompleted && <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>}
               </button>
               <button
                 onClick={() => setShowClassificationModal(true)}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-rose-400 text-white font-bold rounded-xl shadow-lg hover:bg-rose-500 transition-transform transform hover:scale-105"
+                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isClassificationCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-rose-400 hover:bg-rose-500'}`}
               >
                 <ClassificationIcon className="w-7 h-7" />
                 <span>Juego de Clasificación</span>
+                {isClassificationCompleted && <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">✓</span>}
               </button>
             </div>
           </div>
@@ -626,10 +648,9 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-sky-50 text-slate-800 p-4 md:p-8 relative isolate">
        <div 
-        className="absolute inset-0 bg-cover bg-center -z-10" 
+        className="absolute inset-0 bg-cover bg-center -z-10 opacity-20" 
         style={{ 
-          backgroundImage: "url('https://raw.githubusercontent.com/vdhuerta/assets-aplications/main/generated-image%20(15).jpg')",
-          opacity: 0.2,
+          backgroundImage: "url('https://raw.githubusercontent.com/vdhuerta/assets-aplications/main/bosque_fondo.jpg')",
         }}
       ></div>
       <NotificationContainer notifications={notifications} setNotifications={setNotifications} />
@@ -708,72 +729,96 @@ const App: React.FC = () => {
               >
                   <HamburgerMenuIcon />
               </button>
-              {isMenuOpen && <Menu onNavigate={navigate} onClearData={handleClearData} user={currentUser} />}
+              {isMenuOpen && <Suspense fallback={null}><Menu onNavigate={navigate} onClearData={handleClearData} user={currentUser} /></Suspense>}
             </div>
         </div>
       </header>
       <div className="w-full border-b-2 border-sky-300 mb-6"></div>
       <main className="w-full h-[calc(100vh-140px)]">
-        {renderGame()}
+        <Suspense fallback={<GameLoading />}>
+          {renderGame()}
+        </Suspense>
       </main>
       {showClassificationModal && (
-        <ClassificationLevelModal 
-          onSelectLevel={handleSelectLevel}
-          onStartExpertLevel={handleStartExpertLevel}
-          onClose={() => setShowClassificationModal(false)}
-          completedLevels={currentUser?.completed_levels || {}}
-          user={currentUser}
-        />
+        <Suspense fallback={null}>
+          <ClassificationLevelModal 
+            onSelectLevel={handleSelectLevel}
+            onStartExpertLevel={handleStartExpertLevel}
+            onClose={() => setShowClassificationModal(false)}
+            completedLevels={currentUser?.completed_levels || {}}
+            user={currentUser}
+          />
+        </Suspense>
       )}
       {currentIntroContent && (
-        <GameIntroModal
-          {...currentIntroContent}
-          onClose={() => setIntroGameKey(null)}
-        />
+        <Suspense fallback={null}>
+          <GameIntroModal
+            {...currentIntroContent}
+            onClose={() => setIntroGameKey(null)}
+          />
+        </Suspense>
       )}
       {showInventoryLevelModal && (
-        <InventoryLevelModal
-          onSelectLevel={handleSelectInventoryLevel}
-          onClose={() => setShowInventoryLevelModal(false)}
-        />
+        <Suspense fallback={null}>
+          <InventoryLevelModal
+            onSelectLevel={handleSelectInventoryLevel}
+            onClose={() => setShowInventoryLevelModal(false)}
+            completedLevels={currentUser?.completed_levels || {}}
+            user={currentUser}
+          />
+        </Suspense>
       )}
       {showTeachersGuide && (
-        <TeachersGuide onClose={() => setShowTeachersGuide(false)} />
+        <Suspense fallback={null}>
+          <TeachersGuide onClose={() => setShowTeachersGuide(false)} />
+        </Suspense>
       )}
-      <NotificationsLog
-        isOpen={isLogOpen}
-        onClose={() => setIsLogOpen(false)}
-        logs={activityLog}
-        onClear={handleClearLog}
-      />
-      {showRegistrationModal && (
-        <RegistrationModal
-          onClose={() => setShowRegistrationModal(false)}
-          logActivity={logActivity}
-          initialView={initialModalView}
+      <Suspense fallback={null}>
+        <NotificationsLog
+          isOpen={isLogOpen}
+          onClose={() => setIsLogOpen(false)}
+          logs={activityLog}
+          onClear={handleClearLog}
         />
+      </Suspense>
+      {showRegistrationModal && (
+        <Suspense fallback={null}>
+          <RegistrationModal
+            onClose={() => setShowRegistrationModal(false)}
+            logActivity={logActivity}
+            initialView={initialModalView}
+          />
+        </Suspense>
       )}
       {showLogoutConfirm && (
-        <LogoutConfirmationModal
-          onConfirm={confirmLogout}
-          onCancel={() => setShowLogoutConfirm(false)}
-        />
+        <Suspense fallback={null}>
+          <LogoutConfirmationModal
+            onConfirm={confirmLogout}
+            onCancel={() => setShowLogoutConfirm(false)}
+          />
+        </Suspense>
       )}
       {showClearDataConfirm && (
-        <ClearDataConfirmationModal
-          onConfirm={confirmClearData}
-          onCancel={() => setShowClearDataConfirm(false)}
-        />
+        <Suspense fallback={null}>
+          <ClearDataConfirmationModal
+            onConfirm={confirmClearData}
+            onCancel={() => setShowClearDataConfirm(false)}
+          />
+        </Suspense>
       )}
       {showAddToHomeScreenModal && (
-        <AddToHomeScreenModal onClose={() => setShowAddToHomeScreenModal(false)} />
+        <Suspense fallback={null}>
+          <AddToHomeScreenModal onClose={() => setShowAddToHomeScreenModal(false)} />
+        </Suspense>
       )}
       {showRanking && (
-        <Ranking
-          users={allUsers}
-          currentUser={currentUser}
-          onClose={() => setShowRanking(false)}
-        />
+        <Suspense fallback={null}>
+          <Ranking
+            users={allUsers}
+            currentUser={currentUser}
+            onClose={() => setShowRanking(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

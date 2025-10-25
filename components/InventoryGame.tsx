@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, DragEvent, useRef, useCallback } from 'react';
 import { DienesBlockType, InventoryGameDifficulty, InventoryOrder, ClassificationRule, ActivityLogType, Shape, Color, Size, Thickness } from '../types';
 import { ALL_DIENES_BLOCKS, TRANSLATIONS } from '../constants';
@@ -120,9 +121,11 @@ interface InventoryGameProps {
   onUnlockAchievement: (id: string) => void;
   logActivity: (message: string, type: ActivityLogType) => void;
   addScore: (points: number, message: string) => void;
+  onLevelComplete: (levelName: string) => void;
+  completedLevels: Record<string, boolean>;
 }
 
-const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onUnlockAchievement, logActivity, addScore }) => {
+const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels }) => {
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
   const [currentOrder, setCurrentOrder] = useState<InventoryOrder | null>(null);
@@ -196,21 +199,26 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
                   setRound(r => r + 1);
               } else {
                   setIsGameOver(true);
-                  let basePoints = 0;
-                  let achievementId: string | null = null;
-                  switch(difficulty) {
-                      case 'Básico': basePoints = 100; achievementId = 'INVENTORY_BASIC_WIN'; break;
-                      case 'Medio': basePoints = 150; achievementId = 'INVENTORY_MEDIUM_WIN'; break;
-                      case 'Experto': basePoints = 200; achievementId = 'INVENTORY_EXPERT_WIN'; break;
+                  const levelKey = `Inventory Game ${difficulty}`;
+                  
+                  if (!completedLevels[levelKey]) {
+                    let basePoints = 0;
+                    let achievementId: string | null = null;
+                    switch(difficulty) {
+                        case 'Básico': basePoints = 100; achievementId = 'INVENTORY_BASIC_WIN'; break;
+                        case 'Medio': basePoints = 150; achievementId = 'INVENTORY_MEDIUM_WIN'; break;
+                        case 'Experto': basePoints = 200; achievementId = 'INVENTORY_EXPERT_WIN'; break;
+                    }
+                    const totalPoints = newScore * basePoints;
+                    setPointsAwarded(totalPoints);
+                    if (totalPoints > 0) {
+                        addScore(totalPoints, `Completaste el Inventario (${difficulty})`);
+                    }
+                    if (achievementId) {
+                        onUnlockAchievement(achievementId);
+                    }
                   }
-                  const totalPoints = newScore * basePoints;
-                  setPointsAwarded(totalPoints);
-                  if (totalPoints > 0) {
-                      addScore(totalPoints, `Completaste el Inventario (${difficulty})`);
-                  }
-                  if (achievementId) {
-                      onUnlockAchievement(achievementId);
-                  }
+                  onLevelComplete(levelKey);
                   logActivity(`Juego del Inventario (${difficulty}) completado con ${newScore} aciertos.`, 'win');
               }
           }, 2000);

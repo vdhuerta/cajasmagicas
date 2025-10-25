@@ -21,9 +21,11 @@ interface MatchingGameProps {
     onUnlockAchievement: (id: string) => void;
     logActivity: (message: string, type: ActivityLogType) => void;
     addScore: (points: number, message: string) => void;
+    onLevelComplete: (levelName: string) => void;
+    completedLevels: Record<string, boolean>;
 }
 
-const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore }) => {
+const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels }) => {
   const [cards, setCards] = useState<DienesBlockType[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [matchedPairs, setMatchedPairs] = useState<string[]>([]);
@@ -53,16 +55,19 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
       if (matchedPairs.length === PAIRS_COUNT && !isGameComplete) {
           const endTime = Date.now();
           const elapsedSeconds = startTime ? (endTime - startTime) / 1000 : 0;
-          const points = Math.max(100, 1000 - Math.floor(elapsedSeconds * 10));
           
-          setPointsAwarded(points);
-          addScore(points, `Juego de Parejas completado en ${elapsedSeconds.toFixed(1)}s`);
+          if (!completedLevels['Matching Game']) {
+            const points = Math.max(100, 1000 - Math.floor(elapsedSeconds * 10));
+            setPointsAwarded(points);
+            addScore(points, `Juego de Parejas completado en ${elapsedSeconds.toFixed(1)}s`);
+            onUnlockAchievement('MATCHING_GAME_WIN');
+          }
 
           setIsGameComplete(true);
           logActivity('Juego de Parejas completado con éxito', 'win');
-          onUnlockAchievement('MATCHING_GAME_WIN');
+          onLevelComplete('Matching Game');
       }
-  }, [matchedPairs, onUnlockAchievement, isGameComplete, logActivity, addScore, startTime]);
+  }, [matchedPairs, onUnlockAchievement, isGameComplete, logActivity, addScore, startTime, onLevelComplete, completedLevels]);
 
   const handleCardClick = (index: number) => {
     if (isChecking || flippedIndices.includes(index) || matchedPairs.includes(cards[index].id)) {
@@ -130,7 +135,7 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
                         onClick={onGoHome}
                         className="px-6 py-3 bg-gray-400 text-white font-bold rounded-lg shadow-lg hover:bg-gray-500 transition"
                     >
-                        Volver al Inicio
+                        Elegir otro Juego
                     </button>
                 </div>
             </div>

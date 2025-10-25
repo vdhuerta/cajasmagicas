@@ -41,9 +41,11 @@ interface OddOneOutGameProps {
   onUnlockAchievement: (id: string) => void;
   logActivity: (message: string, type: ActivityLogType) => void;
   addScore: (points: number, message: string) => void;
+  onLevelComplete: (levelName: string) => void;
+  completedLevels: Record<string, boolean>;
 }
 
-const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore }) => {
+const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels }) => {
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
   const [blocks, setBlocks] = useState<DienesBlockType[]>([]);
@@ -76,16 +78,20 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
   
   const handleEndGame = (finalScore: number) => {
     setIsGameOver(true);
-    const points = finalScore * 100;
-    setPointsAwarded(points);
-    if (points > 0) {
-        addScore(points, `Obtuviste ${points} puntos en El Duende Despistado`);
-    }
     logActivity(`El Duende Despistado completado con una puntuación de ${finalScore}/${TOTAL_ROUNDS}`, 'win');
-    onUnlockAchievement('ODD_ONE_OUT_WIN');
-    if (finalScore === TOTAL_ROUNDS) {
-      onUnlockAchievement('ODD_ONE_OUT_PERFECT');
+    
+    if (!completedLevels['Odd One Out Game']) {
+      const points = finalScore * 100;
+      setPointsAwarded(points);
+      if (points > 0) {
+          addScore(points, `Obtuviste ${points} puntos en El Duende Despistado`);
+      }
+      onUnlockAchievement('ODD_ONE_OUT_WIN');
+      if (finalScore === TOTAL_ROUNDS) {
+        onUnlockAchievement('ODD_ONE_OUT_PERFECT');
+      }
     }
+    onLevelComplete('Odd One Out Game');
   };
 
 
@@ -155,7 +161,7 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
                     )}
                   <div className="flex justify-center gap-4">
                       <button onClick={resetGame} className="px-6 py-3 bg-sky-500 text-white font-bold rounded-lg shadow-lg hover:bg-sky-600 transition">Jugar de Nuevo</button>
-                      <button onClick={onGoHome} className="px-6 py-3 bg-gray-400 text-white font-bold rounded-lg shadow-lg hover:bg-gray-500 transition">Volver al Inicio</button>
+                      <button onClick={onGoHome} className="px-6 py-3 bg-gray-400 text-white font-bold rounded-lg shadow-lg hover:bg-gray-500 transition">Elegir otro Juego</button>
                   </div>
               </div>
           </div>

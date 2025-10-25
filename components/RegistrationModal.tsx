@@ -1,8 +1,7 @@
 
-
 import React, { useState } from 'react';
 import { CloseIcon } from './icons/CloseIcon';
-import { CareerOption, ActivityLogType, UserProfile } from '../types';
+import { CareerOption, ActivityLogType } from '../types';
 import { supabase } from '../services/supabase';
 
 
@@ -17,6 +16,28 @@ const careerOptions: CareerOption[] = [
     'Pedagogía en Educación Diferencial',
     'Pedagogía en Educación Básica'
 ];
+
+// Función para traducir los errores comunes de Supabase al español.
+const translateSupabaseError = (message: string): string => {
+    if (message.includes('Invalid login credentials')) {
+      return 'Credenciales inválidas. Por favor, revisa tu correo y contraseña.';
+    }
+    if (message.includes('User already registered') || message.includes('already be registered')) {
+      return 'Ya existe una cuenta con este correo. Por favor, inicia sesión.';
+    }
+    if (message.includes('Password should be at least 6 characters')) {
+      return 'La contraseña debe tener al menos 6 caracteres.';
+    }
+    if (message.includes('Unable to validate email address: invalid format')) {
+      return 'El formato del correo electrónico no es válido.';
+    }
+    if (message.includes('Email signups are disabled')) {
+      return 'El registro de nuevos usuarios está deshabilitado en este momento.';
+    }
+    // Mensaje genérico para otros errores no esperados.
+    return 'Ocurrió un error inesperado. Por favor, inténtalo de nuevo más tarde.';
+};
+
 
 const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActivity, initialView }) => {
   const [isLogin, setIsLogin] = useState(initialView === 'login');
@@ -46,7 +67,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
         password,
       });
       if (signInError) {
-        setError(signInError.message);
+        setError(translateSupabaseError(signInError.message));
       } else {
         logActivity(`Usuario ${email} ha iniciado sesión.`, 'system');
         onClose();
@@ -75,7 +96,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
       });
 
       if (signUpError) {
-        setError(signUpError.message);
+        setError(translateSupabaseError(signUpError.message));
       } else {
         // With the trigger in place, the profile will be created automatically.
         // The onAuthStateChange listener in App.tsx will fetch the new profile.

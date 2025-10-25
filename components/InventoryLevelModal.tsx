@@ -1,5 +1,5 @@
 import React from 'react';
-import { InventoryGameDifficulty } from '../types';
+import { InventoryGameDifficulty, UserProfile } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { speakText } from '../utils/tts';
 import { AudioIcon } from './icons/AudioIcon';
@@ -7,6 +7,8 @@ import { AudioIcon } from './icons/AudioIcon';
 interface InventoryLevelModalProps {
   onSelectLevel: (difficulty: InventoryGameDifficulty) => void;
   onClose: () => void;
+  completedLevels: Record<string, boolean>;
+  user: UserProfile | null;
 }
 
 const levels: { name: InventoryGameDifficulty; description: string; colors: any }[] = [
@@ -15,7 +17,7 @@ const levels: { name: InventoryGameDifficulty; description: string; colors: any 
     { name: 'Experto', description: '¡Un verdadero desafío! Pedidos con tres características. Solo para maestros artesanos.', colors: { bg: 'bg-red-500', hover: 'hover:bg-red-600', text: 'text-red-700' } },
 ];
 
-const InventoryLevelModal: React.FC<InventoryLevelModalProps> = ({ onSelectLevel, onClose }) => {
+const InventoryLevelModal: React.FC<InventoryLevelModalProps> = ({ onSelectLevel, onClose, completedLevels, user }) => {
   const modalTitle = "Elige la Dificultad";
   
   return (
@@ -27,25 +29,36 @@ const InventoryLevelModal: React.FC<InventoryLevelModalProps> = ({ onSelectLevel
           <p className="text-slate-600 mt-2">¿Qué tan difícil será el trabajo de hoy?</p>
         </div>
         <div className="space-y-4">
-          {levels.map((level) => (
-            <div key={level.name} className="p-4 border rounded-xl flex flex-col sm:flex-row items-center gap-4">
-                <div className="flex-grow">
-                    <div className="flex items-center gap-2">
-                        <h3 className={`text-2xl font-bold ${level.colors.text}`}>{level.name}</h3>
-                         <button onClick={() => speakText(level.name)} className="p-1 rounded-full hover:bg-slate-100 transition" aria-label={`Leer: ${level.name}`}>
-                            <AudioIcon className={`w-5 h-5 ${level.colors.text}`} />
-                         </button>
+          {levels.map((level) => {
+            const levelKey = `Inventory Game ${level.name}`;
+            const isCompleted = !!(user && completedLevels[levelKey]);
+            
+            const currentColors = isCompleted 
+                ? { bg: 'bg-slate-500', hover: 'hover:bg-slate-600', text: 'text-slate-700' } 
+                : level.colors;
+                
+            const buttonText = isCompleted ? 'Volver a Jugar' : 'Jugar';
+
+            return (
+                <div key={level.name} className={`p-4 border rounded-xl flex flex-col sm:flex-row items-center gap-4 ${isCompleted ? 'bg-slate-100 border-slate-200' : ''}`}>
+                    <div className="flex-grow">
+                        <div className="flex items-center gap-2">
+                            <h3 className={`text-2xl font-bold ${currentColors.text}`}>{level.name}</h3>
+                             <button onClick={() => speakText(level.name)} className="p-1 rounded-full hover:bg-slate-100 transition" aria-label={`Leer: ${level.name}`}>
+                                <AudioIcon className={`w-5 h-5 ${currentColors.text}`} />
+                             </button>
+                        </div>
+                        <p className="text-slate-600">{level.description}</p>
                     </div>
-                    <p className="text-slate-600">{level.description}</p>
+                    <button 
+                        onClick={() => onSelectLevel(level.name)}
+                        className={`w-full sm:w-auto px-8 py-3 ${currentColors.bg} ${currentColors.hover} text-white font-bold rounded-lg shadow-md transition-transform transform hover:scale-105`}
+                    >
+                        {buttonText}
+                    </button>
                 </div>
-                <button 
-                    onClick={() => onSelectLevel(level.name)}
-                    className={`w-full sm:w-auto px-8 py-3 ${level.colors.bg} ${level.colors.hover} text-white font-bold rounded-lg shadow-md transition-transform transform hover:scale-105`}
-                >
-                    Jugar
-                </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
        <style>{`@keyframes fade-in-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } .animate-fade-in-up { animation: fade-in-up 0.3s ease-out forwards; }`}</style>
