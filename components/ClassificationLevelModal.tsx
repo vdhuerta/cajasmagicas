@@ -1,11 +1,10 @@
 
-
 import React, { useState } from 'react';
 import { GAME_LEVELS, SHAPES, COLORS, SIZES, THICKNESSES, TRANSLATIONS } from '../constants';
 import { speakText } from '../utils/tts';
 import { AudioIcon } from './icons/AudioIcon';
 import { CloseIcon } from './icons/CloseIcon';
-import { ClassificationRule, UserProfile } from '../types';
+import { ClassificationRule, UserProfile, DienesBlockType } from '../types';
 import { HelpIcon } from './icons/HelpIcon';
 
 interface ClassificationLevelModalProps {
@@ -36,17 +35,20 @@ const ExpertLevelCreator: React.FC<{onStart: (rule: ClassificationRule) => void}
     const [rules, setRules] = useState<ClassificationRule>({});
     const colors = levelColors[4]; // Purple for expert
 
-    const handleRuleChange = (key: keyof ClassificationRule, value: string) => {
-        const newRules = { ...rules };
-        if (value) {
-            // FIX: Cast the object to 'any' to allow dynamic property assignment.
-            // TypeScript struggles to reconcile the specific type of 'key' with the generic 'string' type of 'value',
-            // leading to an incorrect type inference of 'never' for the property, which causes the assignment to fail.
-            (newRules as any)[key] = value;
-        } else {
-            delete newRules[key];
-        }
-        setRules(newRules);
+    // FIX: Make `handleRuleChange` generic over the key `K`.
+    // This allows TypeScript to understand the relationship between the `key` and the `value`'s type,
+    // resolving an error where `newRules[key]` was inferred as `never` for assignments.
+    const handleRuleChange = <K extends keyof ClassificationRule>(key: K, value: string) => {
+        setRules(prevRules => {
+            const newRules = { ...prevRules };
+            if (value) {
+                // Asserting the type here is safer than using 'any'
+                newRules[key] = value as DienesBlockType[typeof key];
+            } else {
+                delete newRules[key];
+            }
+            return newRules;
+        });
     };
 
     return (
@@ -87,7 +89,6 @@ const ExpertLevelCreator: React.FC<{onStart: (rule: ClassificationRule) => void}
                         <label className="text-sm font-semibold text-slate-700 mb-1">{TRANSLATIONS.thickness}</label>
                         <select onChange={(e) => handleRuleChange('thickness', e.target.value)} className="p-2 border rounded-md bg-white">
                             <option value="">Cualquiera</option>
-                            {/* FIX: Changed key={s} to key={t} to fix a reference error. */}
                             {THICKNESSES.map(t => <option key={t} value={t}>{TRANSLATIONS[t]}</option>)}
                         </select>
                     </div>

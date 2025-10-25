@@ -1,27 +1,25 @@
 
 
-import React, { useState, useEffect } from 'react';
+
+
+import React, { useState, useEffect, ReactNode } from 'react';
 import ClassificationGame from './components/ClassificationGame';
 import MatchingGame from './components/MatchingGame';
 import { speakText } from './utils/tts';
 import ClassificationLevelModal from './components/ClassificationLevelModal';
 import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType } from './types';
 import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS } from './constants';
-import MatchingGameIntro from './components/MatchingGameIntro';
 import OddOneOutGame from './components/OddOneOutGame';
 import { HamburgerMenuIcon } from './components/icons/HamburgerMenuIcon';
 import Menu from './components/Menu';
 import Achievements from './components/Achievements';
 import NotificationContainer from './components/NotificationContainer';
-import OddOneOutGameIntro from './components/OddOneOutGameIntro';
 import { BookOpenIcon } from './components/icons/BookOpenIcon';
 import TeachersGuide from './components/TeachersGuide';
 import NotificationsLog from './components/NotificationsLog';
 import { BellIcon } from './components/icons/BellIcon';
 import { HomeIcon } from './components/icons/HomeIcon';
 import VennDiagramGame from './components/VennDiagramGame';
-import VennDiagramGameIntro from './components/VennDiagramGameIntro';
-import InventoryGameIntro from './components/InventoryGameIntro';
 import InventoryLevelModal from './components/InventoryLevelModal';
 import InventoryGame from './components/InventoryGame';
 import RegistrationModal from './components/RegistrationModal';
@@ -38,6 +36,7 @@ import { VennDiagramIcon } from './components/icons/VennDiagramIcon';
 import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
 import Ranking from './components/Ranking';
 import { supabase } from './services/supabase';
+import GameIntroModal from './components/GameIntroModal';
 
 
 type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory';
@@ -45,10 +44,8 @@ type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'o
 const App: React.FC = () => {
   const [activeGame, setActiveGame] = useState<Game>('home');
   const [showClassificationModal, setShowClassificationModal] = useState(false);
-  const [showMatchingIntro, setShowMatchingIntro] = useState(false);
-  const [showOddOneOutIntro, setShowOddOneOutIntro] = useState(false);
-  const [showVennDiagramIntro, setShowVennDiagramIntro] = useState(false);
-  const [showInventoryIntro, setShowInventoryIntro] = useState(false);
+  const [introGameKey, setIntroGameKey] = useState<Game | null>(null);
+
   const [showInventoryLevelModal, setShowInventoryLevelModal] = useState(false);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -81,38 +78,45 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setAuthLoading(true);
       if (session?.user) {
-          let profile: UserProfile | null = null;
+          let profile: any | null = null;
           let lastError: any = null;
 
-          // Iterative retry logic to handle race condition after registration
           for (let i = 0; i < 4; i++) {
-              // Fetch as an array instead of a single object to handle potential duplicates.
               const { data, error } = await supabase
                   .from('usuarios')
                   .select('*')
                   .eq('id', session.user.id);
               
               if (data && data.length > 0) {
-                  // If duplicates exist, log a warning and use the first profile.
                   if (data.length > 1) {
                       console.warn(`Multiple profiles found for user ${session.user.id}. Using the first one.`);
                   }
                   profile = data[0];
                   lastError = null;
-                  break; // Profile found, exit loop
+                  break; 
               }
 
-              lastError = error; // Store the last error
-              if (i < 3) { // Don't wait after the last attempt
+              lastError = error;
+              if (i < 3) {
                   console.warn(`Profile not found, retrying... (${3 - i} attempts left)`);
                   await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
               }
           }
 
           if (profile) {
-              setCurrentUser(profile);
+              // **FIX:** Sanitize the profile data to prevent crashes from null/undefined values.
+              const userProfile: UserProfile = {
+                id: profile.id,
+                email: profile.email,
+                firstName: profile.firstName || 'Explorador',
+                lastName: profile.lastName || '',
+                career: profile.career || 'Educación Parvularia',
+                score: profile.score ?? 0,
+                unlockedAchievements: profile.unlockedAchievements || {},
+                completed_levels: profile.completed_levels || {},
+              };
+              setCurrentUser(userProfile);
           } else {
-              // The error message from supabase now comes from a different query type, so let's adjust the logging.
               const errorMessage = lastError ? lastError.message : "Profile not found after multiple attempts.";
               console.error("Failed to fetch user profile after retries:", errorMessage);
               setCurrentUser(null);
@@ -129,19 +133,28 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Cargar el registro de actividad desde localStorage (se mantiene simple)
-    const savedLog = localStorage.getItem('activityLog');
+    const logKey = currentUser ? `activityLog_${currentUser.id}` : 'activityLog_guest';
+    const savedLog = localStorage.getItem(logKey);
     if (savedLog) {
       setActivityLog(JSON.parse(savedLog));
     } else {
-      logActivity('¡Bienvenido al Bosque Mágico!', 'system');
+      const welcomeMessage: ActivityLogEntry = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          message: '¡Bienvenido al Bosque Mágico!',
+          type: 'system',
+          seen: true,
+      };
+      setActivityLog([welcomeMessage]);
     }
-  }, []);
+  }, [currentUser]);
   
   useEffect(() => {
-      // Guardar el registro de actividad en localStorage
-      localStorage.setItem('activityLog', JSON.stringify(activityLog));
-  }, [activityLog]);
+    const logKey = currentUser ? `activityLog_${currentUser.id}` : 'activityLog_guest';
+    if (activityLog.length > 0) {
+      localStorage.setItem(logKey, JSON.stringify(activityLog));
+    }
+  }, [activityLog, currentUser]);
 
   useEffect(() => {
     let draggedElement: HTMLElement | null = null;
@@ -258,12 +271,12 @@ const App: React.FC = () => {
   };
 
   const unlockAchievement = async (achievementId: string) => {
-    if (!supabase || !currentUser || currentUser.unlockedAchievements[achievementId]) return;
+    if (!supabase || !currentUser || (currentUser.unlockedAchievements && currentUser.unlockedAchievements[achievementId])) return;
 
     const achievement = ALL_ACHIEVEMENTS.find(a => a.id === achievementId);
     if (!achievement) return;
 
-    const newUnlocked = { ...currentUser.unlockedAchievements, [achievementId]: true };
+    const newUnlocked = { ...(currentUser.unlockedAchievements || {}), [achievementId]: true };
     setCurrentUser(prev => prev ? { ...prev, unlockedAchievements: newUnlocked } : null);
 
     const { error } = await supabase
@@ -283,9 +296,9 @@ const App: React.FC = () => {
   };
   
   const handleLevelComplete = async (levelName: string) => {
-      if (!supabase || !currentUser || currentUser.completed_levels[levelName]) return;
+      if (!supabase || !currentUser || (currentUser.completed_levels && currentUser.completed_levels[levelName])) return;
 
-      const newCompleted = { ...currentUser.completed_levels, [levelName]: true };
+      const newCompleted = { ...(currentUser.completed_levels || {}), [levelName]: true };
       setCurrentUser(prev => prev ? { ...prev, completed_levels: newCompleted } : null);
       
       const { error } = await supabase
@@ -295,33 +308,22 @@ const App: React.FC = () => {
       
       if (error) console.error("Error completing level:", error);
   };
-
-  const handlePlayClassification = () => setShowClassificationModal(true);
-  const handlePlayMatching = () => setShowMatchingIntro(true);
   
-  const handleStartMatching = () => {
-    setShowMatchingIntro(false);
-    setActiveGame('matching');
-    logActivity('Iniciado el Juego de Parejas', 'game');
+  const handleStartGame = (game: Game) => {
+    setIntroGameKey(null);
+    setActiveGame(game);
+    const gameNameMap = {
+      'matching': 'Juego de Parejas',
+      'odd-one-out': 'El Duende Despistado',
+      'venn-diagram': 'El Cruce Mágico',
+    };
+    if (gameNameMap[game as keyof typeof gameNameMap]) {
+      logActivity(`Iniciado ${gameNameMap[game as keyof typeof gameNameMap]}`, 'game');
+    }
   };
 
-  const handlePlayOddOneOut = () => setShowOddOneOutIntro(true);
-  const handleStartOddOneOut = () => {
-    setShowOddOneOutIntro(false);
-    setActiveGame('odd-one-out');
-    logActivity('Iniciado El Duende Despistado', 'game');
-  };
-
-  const handlePlayVennDiagram = () => setShowVennDiagramIntro(true);
-  const handleStartVennDiagram = () => {
-    setShowVennDiagramIntro(false);
-    setActiveGame('venn-diagram');
-    logActivity('Iniciado El Cruce Mágico', 'game');
-  };
-
-  const handlePlayInventory = () => setShowInventoryIntro(true);
   const handleStartInventory = () => {
-      setShowInventoryIntro(false);
+      setIntroGameKey(null);
       setShowInventoryLevelModal(true);
   };
   
@@ -463,6 +465,9 @@ const App: React.FC = () => {
       setCurrentUser(prev => prev ? { ...prev, ...clearedProfile } : null);
     }
     
+    const logKey = currentUser ? `activityLog_${currentUser.id}` : 'activityLog_guest';
+    localStorage.removeItem(logKey);
+
     const welcomeMessage: ActivityLogEntry = {
       id: Date.now(),
       timestamp: new Date().toISOString(),
@@ -471,10 +476,49 @@ const App: React.FC = () => {
       seen: true,
     };
     setActivityLog([welcomeMessage]);
-    localStorage.removeItem('activityLog');
+    
     setShowClearDataConfirm(false);
     navigate('home');
     logActivity('Todos los datos de tu cuenta han sido limpiados.', 'system');
+  };
+  
+  const introContentMap = {
+    'matching': {
+      title: "El Desafío de la Memoria del Bosque",
+      story: "¡Los duendes traviesos han vuelto a hacer de las suyas! Han escondido las figuras mágicas bajo un manto de hojas encantadas. ¡Solo un explorador con una memoria de elefante puede encontrar todas las parejas y poner orden!",
+      instructions: "Tu misión es simple: voltea dos hojas a la vez para encontrar las figuras que son idénticas. ¡Concéntrate y recuerda dónde se esconde cada una!",
+      buttonText: "¡Estoy listo!",
+      Icon: PairsIcon,
+      theme: { text: 'text-amber-800', buttonBg: 'bg-amber-500', buttonHoverBg: 'hover:bg-amber-600', iconText: 'text-amber-500', bg: 'bg-amber-50', audioHover: 'hover:bg-amber-100', audioText: 'text-amber-700' },
+      onStart: () => handleStartGame('matching'),
+    },
+    'odd-one-out': {
+      title: "El Duende Despistado",
+      story: "¡Oh, no! Un duende un poco despistado ha mezclado todas las figuras mágicas mientras jugaba. En cada grupo que te muestre, ha colado una figura que no debería estar ahí.",
+      instructions: "Tu misión es encontrar al 'impostor'. Observa con atención el consejo del duende y haz clic en la única figura que no sigue la regla. ¡Demuestra tu ojo de águila!",
+      buttonText: "¡A investigar!",
+      Icon: MagnifyingGlassIcon,
+      theme: { text: 'text-teal-800', buttonBg: 'bg-teal-500', buttonHoverBg: 'hover:bg-teal-600', iconText: 'text-teal-500', bg: 'bg-teal-50', audioHover: 'hover:bg-teal-100', audioText: 'text-teal-700' },
+      onStart: () => handleStartGame('odd-one-out'),
+    },
+    'venn-diagram': {
+      title: "El Cruce Mágico",
+      story: "Dos arroyos mágicos fluyen por el bosque. Uno es el 'Arroyo de las Formas Circulares' y el otro es el 'Arroyo de las Cosas Azules'. ¡Donde se cruzan, forman una poza mágica!",
+      instructions: "Tu misión es arrastrar cada figura a su lugar correcto. Algunas van a un arroyo, otras al otro, ¡y las más especiales van justo en la poza donde se juntan los dos!",
+      buttonText: "¡Vamos a explorar!",
+      Icon: VennDiagramIcon,
+      theme: { text: 'text-cyan-800', buttonBg: 'bg-cyan-500', buttonHoverBg: 'hover:bg-cyan-600', iconText: 'text-cyan-500', bg: 'bg-cyan-50', audioHover: 'hover:bg-cyan-100', audioText: 'text-cyan-700' },
+      onStart: () => handleStartGame('venn-diagram'),
+    },
+     'inventory': {
+      title: "El Inventario del Duende",
+      story: "Un duende artesano muy ocupado necesita tu ayuda. Está construyendo inventos mágicos, ¡pero se le han mezclado todas las piezas! No puede empezar a construir hasta que tenga el número exacto de cada componente.",
+      instructions: "Tu misión es leer con atención el pedido del duende. Luego, busca en el montón las figuras que te pide, cuéntalas con cuidado y arrástralas a su cesta. ¡La precisión es la clave!",
+      buttonText: "¡A trabajar!",
+      Icon: ClipboardListIcon,
+      theme: { text: 'text-lime-800', buttonBg: 'bg-lime-500', buttonHoverBg: 'hover:bg-lime-600', iconText: 'text-lime-500', bg: 'bg-lime-50', audioHover: 'hover:bg-lime-100', audioText: 'text-lime-700' },
+      onStart: handleStartInventory,
+    },
   };
 
   const renderGame = () => {
@@ -502,35 +546,35 @@ const App: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <button
-                onClick={handlePlayMatching}
+                onClick={() => setIntroGameKey('matching')}
                 className="flex items-center justify-center gap-3 px-8 py-4 bg-amber-400 text-white font-bold rounded-xl shadow-lg hover:bg-amber-500 transition-transform transform hover:scale-105"
               >
                 <PairsIcon className="w-7 h-7" />
                 <span>Juego de Parejas</span>
               </button>
               <button
-                onClick={handlePlayOddOneOut}
+                onClick={() => setIntroGameKey('odd-one-out')}
                 className="flex items-center justify-center gap-3 px-8 py-4 bg-teal-400 text-white font-bold rounded-xl shadow-lg hover:bg-teal-500 transition-transform transform hover:scale-105"
               >
                 <MagnifyingGlassIcon className="w-7 h-7" />
                 <span>El Duende Despistado</span>
               </button>
               <button
-                onClick={handlePlayVennDiagram}
+                onClick={() => setIntroGameKey('venn-diagram')}
                 className="flex items-center justify-center gap-3 px-8 py-4 bg-cyan-400 text-white font-bold rounded-xl shadow-lg hover:bg-cyan-500 transition-transform transform hover:scale-105"
               >
                 <VennDiagramIcon className="w-7 h-7" />
                 <span>El Cruce Mágico</span>
               </button>
               <button
-                onClick={handlePlayInventory}
+                onClick={() => setIntroGameKey('inventory')}
                 className="flex items-center justify-center gap-3 px-8 py-4 bg-lime-500 text-white font-bold rounded-xl shadow-lg hover:bg-lime-600 transition-transform transform hover:scale-105"
               >
                 <ClipboardListIcon className="w-7 h-7" />
                 <span>El Inventario del Duende</span>
               </button>
               <button
-                onClick={handlePlayClassification}
+                onClick={() => setShowClassificationModal(true)}
                 className="flex items-center justify-center gap-3 px-8 py-4 bg-rose-400 text-white font-bold rounded-xl shadow-lg hover:bg-rose-500 transition-transform transform hover:scale-105"
               >
                 <ClassificationIcon className="w-7 h-7" />
@@ -576,6 +620,8 @@ const App: React.FC = () => {
         );
     }
   };
+
+  const currentIntroContent = introGameKey ? introContentMap[introGameKey as keyof typeof introContentMap] : null;
 
   return (
     <div className="min-h-screen bg-sky-50 text-slate-800 p-4 md:p-8 relative isolate">
@@ -679,28 +725,10 @@ const App: React.FC = () => {
           user={currentUser}
         />
       )}
-      {showMatchingIntro && (
-        <MatchingGameIntro 
-          onStart={handleStartMatching}
-          onClose={() => setShowMatchingIntro(false)}
-        />
-      )}
-      {showOddOneOutIntro && (
-        <OddOneOutGameIntro
-          onStart={handleStartOddOneOut}
-          onClose={() => setShowOddOneOutIntro(false)}
-        />
-      )}
-      {showVennDiagramIntro && (
-        <VennDiagramGameIntro
-          onStart={handleStartVennDiagram}
-          onClose={() => setShowVennDiagramIntro(false)}
-        />
-      )}
-      {showInventoryIntro && (
-        <InventoryGameIntro
-          onStart={handleStartInventory}
-          onClose={() => setShowInventoryIntro(false)}
+      {currentIntroContent && (
+        <GameIntroModal
+          {...currentIntroContent}
+          onClose={() => setIntroGameKey(null)}
         />
       )}
       {showInventoryLevelModal && (

@@ -1,29 +1,28 @@
 // services/supabase.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// TODO: REEMPLAZA ESTOS VALORES CON TUS PROPIAS CLAVES DE SUPABASE
-// Puedes encontrarlas en la configuración de tu proyecto de Supabase en "Settings" > "API".
-// FIX: Explicitly typing as string avoids a TypeScript error when comparing a literal string to a placeholder.
-const supabaseUrl: string = 'https://blkmxffsdxgtzoautmqz.supabase.co';
-const supabaseAnonKey: string = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsa214ZmZzZHhndHpvYXV0bXF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMjE1ODcsImV4cCI6MjA3Njc5NzU4N30.axEq8nAp7yRRqu2qCvBnqrzM0MhGLef5PapCfhf5Fv8';
+// --- ¡IMPORTANTE! ---
+// Reemplaza estas variables con las de tu propio proyecto de Supabase.
+// Puedes encontrar estas claves en la configuración de tu proyecto, en la sección "API".
+// La clave "anon" es segura para ser expuesta en el frontend, ya que la seguridad
+// se gestiona a través de las Políticas de Seguridad a Nivel de Fila (RLS) en tu base de datos.
+const supabaseUrl = 'https://blkmxffsdxgtzoautmqz.supabase.co'; // <-- REEMPLAZA ESTO
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsa214ZmZzZHhndHpvYXV0bXF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMjE1ODcsImV4cCI6MjA3Njc5NzU4N30.axEq8nAp7yRRqu2qCvBnqrzM0MhGLef5PapCfhf5Fv8'; // <-- REEMPLAZA ESTO
 
 let supabase: SupabaseClient | null = null;
 
-// Solo intentar crear el cliente si las variables de entorno han sido reemplazadas.
-if (supabaseUrl !== 'https://blkmxffsdxgtzoautmqz.supabase.co' && supabaseAnonKey !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsa214ZmZzZHhndHpvYXV0bXF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMjE1ODcsImV4cCI6MjA3Njc5NzU4N30.axEq8nAp7yRRqu2qCvBnqrzM0MhGLef5PapCfhf5Fv8') {
-    // Usamos un bloque try-catch para manejar errores en caso de que la URL sea inválida.
+// Validamos que las claves no sean las de ejemplo para evitar errores.
+if (supabaseUrl && supabaseAnonKey && supabaseUrl.includes('.supabase.co') && !supabaseUrl.includes('tu-id-de-proyecto')) {
     try {
         supabase = createClient(supabaseUrl, supabaseAnonKey);
     } catch (error) {
         console.error("Error al inicializar el cliente de Supabase:", error);
-        // Alertar al usuario de que la configuración es incorrecta.
-        alert("Error en la configuración de Supabase. Revisa que la URL en 'services/supabase.ts' sea válida.");
     }
 } else {
-    // Advertir en la consola que la app funcionará sin conexión a la base de datos.
-    // Esto evita que la aplicación se bloquee y permite el desarrollo/uso local.
-    console.warn("ADVERTENCIA: Las claves de Supabase no han sido configuradas en 'services/supabase.ts'. La aplicación funcionará en modo local sin conexión a la base de datos.");
+    // Si las claves son las de ejemplo, no inicializamos Supabase.
+    // Esto evita que la aplicación intente conectarse a un proyecto inexistente.
+    // La UI mostrará el "Modo Local".
+    console.warn("Las credenciales de Supabase no han sido configuradas. La aplicación se ejecutará en modo local. Por favor, actualiza 'services/supabase.ts' con tus propias claves.");
 }
 
-// Exporta el cliente de Supabase (puede ser null si no está configurado).
 export { supabase };

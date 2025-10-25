@@ -59,27 +59,28 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
           return;
       }
       
-      // Pasamos los datos del perfil en las opciones del signUp.
-      // Un "trigger" en la base de datos se encargará de crear el perfil automáticamente.
+      // The robust way: sign up the user and pass their profile data in the `options.data` field.
+      // A database trigger (handle_new_user) will then securely create the profile.
+      // This avoids client-side race conditions and respects Row Level Security policies.
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            firstName,
-            lastName,
-            career,
-          },
-        },
+            firstName: firstName,
+            lastName: lastName,
+            career: career,
+          }
+        }
       });
 
       if (signUpError) {
         setError(signUpError.message);
       } else {
-        // El perfil se crea automáticamente. El usuario recibirá un correo de confirmación.
-        logActivity(`Nueva cuenta creada para ${firstName}. Esperando confirmación por correo.`, 'system');
-        // Mostramos un mensaje importante al usuario.
-        alert('¡Registro exitoso! Revisa tu correo electrónico para confirmar tu cuenta antes de poder iniciar sesión.');
+        // With the trigger in place, the profile will be created automatically.
+        // The onAuthStateChange listener in App.tsx will fetch the new profile.
+        // For an instant login experience, "Email confirmation" must be disabled in Supabase settings.
+        logActivity(`Nueva cuenta creada para ${firstName}. ¡Bienvenido!`, 'system');
         onClose();
       }
     }
