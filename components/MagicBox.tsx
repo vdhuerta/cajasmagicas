@@ -1,15 +1,21 @@
 
+
 import React, { useState, ReactNode, useRef, useEffect } from 'react';
-import { DienesBlockType } from '../types';
+// FIX: Import TreasureObject and use a union type to make the component more reusable.
+import { DienesBlockType, TreasureObject } from '../types';
 import DienesBlock from './DienesBlock';
 import { speakText } from '../utils/tts';
 import { AudioIcon } from './icons/AudioIcon';
+// FIX: Import TreasureObjectDisplay for rendering treasure items.
+import TreasureObjectDisplay from './TreasureObjectDisplay';
 
 interface MagicBoxProps {
   id: string;
   label: string;
-  onDrop: (boxId: string, block: DienesBlockType) => void;
-  blocks: DienesBlockType[];
+  // FIX: Allow onDrop to handle either type of object.
+  onDrop: (boxId: string, block: DienesBlockType | TreasureObject) => void;
+  // FIX: Allow blocks to be an array of either type.
+  blocks: (DienesBlockType | TreasureObject)[];
   children?: ReactNode;
 }
 
@@ -83,9 +89,16 @@ const MagicBox: React.FC<MagicBoxProps> = ({ id, label, onDrop, blocks, children
       </div>
 
       <div className="h-full min-h-[150px] flex flex-wrap items-start justify-center gap-2 p-2 bg-white/50 rounded-lg">
-        {blocks.map(block => (
-          <DienesBlock key={block.id} block={block} />
-        ))}
+        {/* FIX: Use type guards to render the correct component for each item type. */}
+        {blocks.map(item => {
+          if ('shape' in item && 'thickness' in item) {
+            return <DienesBlock key={item.id} block={item as DienesBlockType} />;
+          }
+          if ('objectType' in item) {
+            return <TreasureObjectDisplay key={item.id} treasure={item as TreasureObject} />;
+          }
+          return null;
+        })}
       </div>
       {children}
     </div>

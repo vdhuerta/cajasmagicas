@@ -23,6 +23,26 @@ export enum Thickness {
   Thin = 'thin',
 }
 
+// NEW Enums for Treasure Objects
+export enum ObjectType {
+  Button = 'button',
+  Lid = 'lid',
+  Spoon = 'spoon',
+  Sock = 'sock',
+}
+
+export enum Pattern {
+  Solid = 'solid',
+  Stripes = 'stripes',
+  Dots = 'dots',
+}
+
+export enum Holes {
+  Two = 'two',
+  Four = 'four',
+}
+
+
 export interface DienesBlockType {
   id: string;
   shape: Shape;
@@ -91,4 +111,25 @@ export interface UserProfile {
   score: number;
   unlockedAchievements: Record<string, boolean>;
   completed_levels: Record<string, boolean>;
+}
+
+// NEW Interface for Treasure Objects
+export interface TreasureObject {
+  id: string;
+  objectType: ObjectType;
+  color: Color;
+  size: Size;
+  pattern?: Pattern; // optional, for socks
+  holes?: Holes;     // optional, for buttons
+}
+
+// Classification rule for the new treasures
+export type TreasureClassificationRule = {
+    [key in keyof Omit<TreasureObject, 'id'>]?: TreasureObject[key];
+};
+
+export interface TreasureMagicBoxDefinition {
+    id: string;
+    label: string;
+    rule: TreasureClassificationRule;
 }

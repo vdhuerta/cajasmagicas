@@ -17,6 +17,7 @@ import { InstallIcon } from './components/icons/InstallIcon';
 import { PairsIcon } from './components/icons/PairsIcon';
 import { VennDiagramIcon } from './components/icons/VennDiagramIcon';
 import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
+import { TreasureChestIcon } from './components/icons/TreasureChestIcon';
 import { supabase } from './services/supabase';
 
 // Lazy load components for better performance
@@ -25,6 +26,7 @@ const MatchingGame = lazy(() => import('./components/MatchingGame'));
 const OddOneOutGame = lazy(() => import('./components/OddOneOutGame'));
 const VennDiagramGame = lazy(() => import('./components/VennDiagramGame'));
 const InventoryGame = lazy(() => import('./components/InventoryGame'));
+const TreasureSortGame = lazy(() => import('./components/TreasureSortGame'));
 const Achievements = lazy(() => import('./components/Achievements'));
 const Menu = lazy(() => import('./components/Menu'));
 const ClassificationLevelModal = lazy(() => import('./components/ClassificationLevelModal'));
@@ -38,7 +40,7 @@ const AddToHomeScreenModal = lazy(() => import('./components/AddToHomeScreenModa
 const Ranking = lazy(() => import('./components/Ranking'));
 const GameIntroModal = lazy(() => import('./components/GameIntroModal'));
 
-type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory';
+type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort';
 
 const GameLoading: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center">
@@ -353,6 +355,7 @@ const App: React.FC = () => {
       'matching': 'Juego de Parejas',
       'odd-one-out': 'El Duende Despistado',
       'venn-diagram': 'El Cruce Mágico',
+      'treasure-sort': 'El Baúl de los Tesoros',
     };
     if (gameNameMap[game as keyof typeof gameNameMap]) {
       logActivity(`Iniciado ${gameNameMap[game as keyof typeof gameNameMap]}`, 'game');
@@ -572,6 +575,15 @@ const App: React.FC = () => {
       theme: { text: 'text-lime-800', buttonBg: 'bg-lime-500', buttonHoverBg: 'hover:bg-lime-600', iconText: 'text-lime-500', bg: 'bg-lime-50', audioHover: 'hover:bg-lime-100', audioText: 'text-lime-700' },
       onStart: handleStartInventory,
     },
+    'treasure-sort': {
+      title: "El Baúl de los Tesoros",
+      story: "¡Una ardilla ha encontrado un baúl lleno de tesoros de los duendes! Hay botones, cucharas y calcetines. ¡Pero está todo mezclado! ¿Puedes ayudarla a ordenarlo todo?",
+      instructions: "Primero, elige cómo quieres ordenar los tesoros usando los botones de arriba. ¿Por color? ¿Por tipo? Luego, arrastra cada tesoro a su caja correcta. ¡Puedes cambiar la regla cuando quieras para un nuevo desafío!",
+      buttonText: "¡A ordenar!",
+      Icon: TreasureChestIcon,
+      theme: { text: 'text-stone-800', buttonBg: 'bg-stone-500', buttonHoverBg: 'hover:bg-stone-600', iconText: 'text-stone-500', bg: 'bg-stone-50', audioHover: 'hover:bg-stone-100', audioText: 'text-stone-700' },
+      onStart: () => handleStartGame('treasure-sort'),
+    },
   };
 
   const renderGame = () => {
@@ -586,6 +598,8 @@ const App: React.FC = () => {
         return <VennDiagramGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} onLevelComplete={handleLevelComplete} />;
       case 'inventory':
           return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
+      case 'treasure-sort':
+          return <TreasureSortGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
       case 'achievements':
         return <Achievements unlockedAchievements={currentUser?.unlockedAchievements || {}} />;
       case 'classification-games':
@@ -663,9 +677,19 @@ const App: React.FC = () => {
               >
                 <div className="flex items-center justify-center gap-3">
                   <ClassificationIcon className="w-7 h-7" />
-                  <span className="font-bold">Juego de Clasificación</span>
+                  <span className="font-bold">Bloques Lógicos</span>
                 </div>
                 <span className="block text-sm font-normal opacity-90 mt-1">4 Niveles + Experto</span>
+              </button>
+               <button
+                onClick={() => setIntroGameKey('treasure-sort')}
+                className="relative px-8 py-4 bg-stone-400 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-stone-500"
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <TreasureChestIcon className="w-7 h-7" />
+                  <span className="font-bold">El Baúl de los Tesoros</span>
+                </div>
+                <span className="block text-sm font-normal opacity-90 mt-1">Niveles Dinámicos</span>
               </button>
             </div>
           </div>

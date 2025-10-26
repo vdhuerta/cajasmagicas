@@ -1,4 +1,4 @@
-import { DienesBlockType, Shape, Color, Size, Thickness, GameLevel, Achievement } from './types';
+import { DienesBlockType, Shape, Color, Size, Thickness, GameLevel, Achievement, TreasureObject, ObjectType, Pattern, Holes } from './types';
 
 export const SHAPES = [Shape.Circle, Shape.Square, Shape.Triangle, Shape.Rectangle];
 export const COLORS = [Color.Red, Color.Blue, Color.Yellow];
@@ -22,6 +22,35 @@ for (const shape of SHAPES) {
     }
   }
 }
+
+export const ALL_TREASURE_OBJECTS: TreasureObject[] = [
+  // Buttons
+  { id: 'treasure-1', objectType: ObjectType.Button, color: Color.Red, size: Size.Small, holes: Holes.Two },
+  { id: 'treasure-2', objectType: ObjectType.Button, color: Color.Red, size: Size.Large, holes: Holes.Four },
+  { id: 'treasure-3', objectType: ObjectType.Button, color: Color.Blue, size: Size.Small, holes: Holes.Four },
+  { id: 'treasure-4', objectType: ObjectType.Button, color: Color.Blue, size: Size.Large, holes: Holes.Two },
+  { id: 'treasure-5', objectType: ObjectType.Button, color: Color.Yellow, size: Size.Small, holes: Holes.Two },
+  { id: 'treasure-6', objectType: ObjectType.Button, color: Color.Yellow, size: Size.Large, holes: Holes.Four },
+  // Spoons
+  { id: 'treasure-7', objectType: ObjectType.Spoon, color: Color.Red, size: Size.Small },
+  { id: 'treasure-8', objectType: ObjectType.Spoon, color: Color.Red, size: Size.Large },
+  { id: 'treasure-9', objectType: ObjectType.Spoon, color: Color.Blue, size: Size.Small },
+  { id: 'treasure-10', objectType: ObjectType.Spoon, color: Color.Blue, size: Size.Large },
+  { id: 'treasure-11', objectType: ObjectType.Spoon, color: Color.Yellow, size: Size.Small },
+  { id: 'treasure-12', objectType: ObjectType.Spoon, color: Color.Yellow, size: Size.Large },
+  // Lids
+  { id: 'treasure-13', objectType: ObjectType.Lid, color: Color.Red, size: Size.Small },
+  { id: 'treasure-14', objectType: ObjectType.Lid, color: Color.Blue, size: Size.Large },
+  { id: 'treasure-15', objectType: ObjectType.Lid, color: Color.Yellow, size: Size.Small },
+  { id: 'treasure-16', objectType: ObjectType.Lid, color: Color.Red, size: Size.Large },
+  // Socks
+  { id: 'treasure-17', objectType: ObjectType.Sock, color: Color.Red, size: Size.Small, pattern: Pattern.Dots },
+  { id: 'treasure-18', objectType: ObjectType.Sock, color: Color.Yellow, size: Size.Large, pattern: Pattern.Stripes },
+  { id: 'treasure-19', objectType: ObjectType.Sock, color: Color.Yellow, size: Size.Small, pattern: Pattern.Stripes },
+  { id: 'treasure-20', objectType: ObjectType.Sock, color: Color.Blue, size: Size.Large, pattern: Pattern.Solid },
+  { id: 'treasure-21', objectType: ObjectType.Sock, color: Color.Blue, size: Size.Small, pattern: Pattern.Solid },
+  { id: 'treasure-22', objectType: ObjectType.Sock, color: Color.Red, size: Size.Large, pattern: Pattern.Dots },
+];
 
 export const GAME_LEVELS: GameLevel[] = [
     {
@@ -84,6 +113,19 @@ export const TRANSLATIONS: Record<string, string> = {
     [Color.Red]: 'Rojo', [Color.Blue]: 'Azul', [Color.Yellow]: 'Amarillo',
     [Size.Small]: 'Pequeño', [Size.Large]: 'Grande',
     [Thickness.Thick]: 'Grueso', [Thickness.Thin]: 'Delgado',
+    // New translations
+    objectType: 'Tipo',
+    pattern: 'Patrón',
+    holes: 'Agujeros',
+    [ObjectType.Button]: 'Botones',
+    [ObjectType.Lid]: 'Tapas',
+    [ObjectType.Spoon]: 'Cucharas',
+    [ObjectType.Sock]: 'Calcetines',
+    [Pattern.Solid]: 'Liso',
+    [Pattern.Stripes]: 'Rayas',
+    [Pattern.Dots]: 'Puntos',
+    [Holes.Two]: '2 Agujeros',
+    [Holes.Four]: '4 Agujeros',
 };
 
 export const ALL_ACHIEVEMENTS: Achievement[] = [
@@ -99,5 +141,6 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
     { id: 'INVENTORY_BASIC_WIN', name: 'Ayudante de Duende', description: 'Completa el Nivel Básico del Inventario.' },
     { id: 'INVENTORY_MEDIUM_WIN', name: 'Artesano Habilidoso', description: 'Completa el Nivel Medio del Inventario.' },
     { id: 'INVENTORY_EXPERT_WIN', name: 'Maestro Inventor', description: 'Completa el Nivel Experto del Inventario.' },
+    { id: 'TREASURE_SORT_WIN', name: 'Coleccionista de Tesoros', description: 'Completa una ronda en El Baúl de los Tesoros.' },
     { id: 'GEMINI_NAME', name: '¡Poder Mágico!', description: 'Usa la magia de la IA para nombrar una caja.' },
 ];
