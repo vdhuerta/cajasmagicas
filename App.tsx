@@ -604,53 +604,68 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <button
                 onClick={() => setIntroGameKey('matching')}
-                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${
+                className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${
                     isMatchingCompleted
                     ? 'bg-slate-400 hover:bg-slate-500'
                     : 'bg-amber-400 hover:bg-amber-500'
                 }`}
               >
                 {isMatchingCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
-                <PairsIcon className="w-7 h-7" />
-                <span>Juego de Parejas</span>
+                <div className="flex items-center justify-center gap-3">
+                  <PairsIcon className="w-7 h-7" />
+                  <span className="font-bold">Juego de Parejas</span>
+                </div>
+                <span className="block text-sm font-normal opacity-90 mt-1">1 Nivel</span>
               </button>
               <button
                 onClick={() => setIntroGameKey('odd-one-out')}
-                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${
+                className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${
                     isOddOneOutCompleted
                     ? 'bg-slate-400 hover:bg-slate-500'
                     : 'bg-teal-400 hover:bg-teal-500'
                 }`}
               >
                 {isOddOneOutCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
-                <MagnifyingGlassIcon className="w-7 h-7" />
-                <span>El Duende Despistado</span>
+                <div className="flex items-center justify-center gap-3">
+                  <MagnifyingGlassIcon className="w-7 h-7" />
+                  <span className="font-bold">El Duende Despistado</span>
+                </div>
+                <span className="block text-sm font-normal opacity-90 mt-1">1 Nivel</span>
               </button>
               <button
                 onClick={() => setIntroGameKey('venn-diagram')}
-                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${
+                className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${
                     isVennCompleted
                     ? 'bg-slate-400 hover:bg-slate-500'
                     : 'bg-cyan-400 hover:bg-cyan-500'
                 }`}
               >
                 {isVennCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
-                <VennDiagramIcon className="w-7 h-7" />
-                <span>El Cruce Mágico</span>
+                <div className="flex items-center justify-center gap-3">
+                  <VennDiagramIcon className="w-7 h-7" />
+                  <span className="font-bold">El Cruce Mágico</span>
+                </div>
+                <span className="block text-sm font-normal opacity-90 mt-1">1 Nivel</span>
               </button>
               <button
                 onClick={() => setIntroGameKey('inventory')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-lime-500 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-lime-600"
+                className="relative px-8 py-4 bg-lime-500 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-lime-600"
               >
-                <ClipboardListIcon className="w-7 h-7" />
-                <span>El Inventario del Duende</span>
+                <div className="flex items-center justify-center gap-3">
+                  <ClipboardListIcon className="w-7 h-7" />
+                  <span className="font-bold">El Inventario del Duende</span>
+                </div>
+                <span className="block text-sm font-normal opacity-90 mt-1">3 Niveles</span>
               </button>
               <button
                 onClick={() => setShowClassificationModal(true)}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-rose-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-rose-500"
+                className="relative px-8 py-4 bg-rose-400 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-rose-500"
               >
-                <ClassificationIcon className="w-7 h-7" />
-                <span>Juego de Clasificación</span>
+                <div className="flex items-center justify-center gap-3">
+                  <ClassificationIcon className="w-7 h-7" />
+                  <span className="font-bold">Juego de Clasificación</span>
+                </div>
+                <span className="block text-sm font-normal opacity-90 mt-1">4 Niveles + Experto</span>
               </button>
             </div>
           </div>

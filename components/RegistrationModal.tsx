@@ -52,8 +52,11 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Prevenir doble clic
+
     setLoading(true);
     setError('');
+    let isSuccess = false;
 
     try {
         if (!supabase) {
@@ -66,36 +69,52 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
                 email,
                 password,
             });
-            if (signInError) throw signInError;
+
+            if (signInError) {
+                throw signInError;
+            }
+            
             logActivity(`Usuario ${email} ha iniciado sesión.`, 'system');
-            onClose();
+            isSuccess = true;
+
         } else {
             // Handle Sign Up
             if (!firstName || !lastName) {
                 throw new Error('Nombres y apellidos son requeridos para crear una cuenta.');
             }
             
-            const { error: signUpError } = await supabase.auth.signUp({
+            const { data, error: signUpError } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
                     data: {
-                        firstName: firstName,
-                        lastName: lastName,
+                        firstName: firstName.trim(),
+                        lastName: lastName.trim(),
                         career: career,
                     }
                 }
             });
 
-            if (signUpError) throw signUpError;
+            if (signUpError) {
+                throw signUpError;
+            }
             
+            // Maneja el caso en que signUp devuelve un usuario que ya existe sin lanzar un error explícito.
+            if (data.user && data.user.identities && data.user.identities.length === 0) {
+                throw new Error('User already registered');
+            }
+
             logActivity(`Nueva cuenta creada para ${firstName}. ¡Bienvenido!`, 'system');
-            onClose();
+            isSuccess = true;
         }
     } catch (err: any) {
         setError(translateSupabaseError(err.message));
+        isSuccess = false;
     } finally {
         setLoading(false);
+        if (isSuccess) {
+            onClose();
+        }
     }
   };
 
