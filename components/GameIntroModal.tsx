@@ -22,9 +22,12 @@ interface GameIntroModalProps {
     audioHover: string;
     audioText: string;
   };
+  isCompleted: boolean;
 }
 
-const GameIntroModal: React.FC<GameIntroModalProps> = ({ onStart, onClose, title, story, instructions, buttonText, Icon, theme }) => {
+const GameIntroModal: React.FC<GameIntroModalProps> = ({ onStart, onClose, title, story, instructions, buttonText, Icon, theme, isCompleted }) => {
+  const finalButtonText = isCompleted ? '¿Quieres volver a Jugar?' : buttonText;
+
   return (
     <div className="fixed inset-0 bg-slate-800 bg-opacity-60 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
       <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-lg md:max-w-2xl relative animate-fade-in-up text-center">
@@ -54,7 +57,7 @@ const GameIntroModal: React.FC<GameIntroModalProps> = ({ onStart, onClose, title
           onClick={onStart} 
           className={`w-full px-6 py-4 ${theme.buttonBg} text-white font-bold text-lg rounded-xl shadow-lg ${theme.buttonHoverBg} transition-transform transform hover:scale-105`}
         >
-          {buttonText}
+          {finalButtonText}
         </button>
 
       </div>

@@ -46,6 +46,12 @@ const GameLoading: React.FC = () => (
   </div>
 );
 
+const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
 const App: React.FC = () => {
   const [activeGame, setActiveGame] = useState<Game>('home');
   const [showClassificationModal, setShowClassificationModal] = useState(false);
@@ -585,6 +591,11 @@ const App: React.FC = () => {
       case 'classification-games':
         const welcomeTitle = "Juegos de Clasificación";
         const welcomeText = "¡Ayuda a los duendes a ordenar sus figuras mágicas usando diferentes reglas!";
+        
+        const isMatchingCompleted = !!(currentUser?.completed_levels?.['Matching Game']);
+        const isOddOneOutCompleted = !!(currentUser?.completed_levels?.['Odd One Out Game']);
+        const isVennCompleted = !!(currentUser?.completed_levels?.['Venn Diagram']);
+
         return (
           <div className="flex flex-col items-center justify-center h-full text-center">
              <h1 className="text-5xl font-bold text-sky-700 mb-4">{welcomeTitle}</h1>
@@ -593,22 +604,37 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <button
                 onClick={() => setIntroGameKey('matching')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-amber-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-amber-500"
+                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${
+                    isMatchingCompleted
+                    ? 'bg-slate-400 hover:bg-slate-500'
+                    : 'bg-amber-400 hover:bg-amber-500'
+                }`}
               >
+                {isMatchingCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
                 <PairsIcon className="w-7 h-7" />
                 <span>Juego de Parejas</span>
               </button>
               <button
                 onClick={() => setIntroGameKey('odd-one-out')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-teal-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-teal-500"
+                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${
+                    isOddOneOutCompleted
+                    ? 'bg-slate-400 hover:bg-slate-500'
+                    : 'bg-teal-400 hover:bg-teal-500'
+                }`}
               >
+                {isOddOneOutCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
                 <MagnifyingGlassIcon className="w-7 h-7" />
                 <span>El Duende Despistado</span>
               </button>
               <button
                 onClick={() => setIntroGameKey('venn-diagram')}
-                className="flex items-center justify-center gap-3 px-8 py-4 bg-cyan-400 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-cyan-500"
+                className={`relative flex items-center justify-center gap-3 px-8 py-4 text-white font-bold rounded-xl shadow-lg transition-transform transform hover:scale-105 ${
+                    isVennCompleted
+                    ? 'bg-slate-400 hover:bg-slate-500'
+                    : 'bg-cyan-400 hover:bg-cyan-500'
+                }`}
               >
+                {isVennCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
                 <VennDiagramIcon className="w-7 h-7" />
                 <span>El Cruce Mágico</span>
               </button>
@@ -668,6 +694,14 @@ const App: React.FC = () => {
   };
 
   const currentIntroContent = introGameKey ? introContentMap[introGameKey as keyof typeof introContentMap] : null;
+
+  let isCurrentIntroGameCompleted = false;
+  if (currentUser?.completed_levels && introGameKey) {
+      const completed = currentUser.completed_levels;
+      if (introGameKey === 'matching') isCurrentIntroGameCompleted = !!completed['Matching Game'];
+      if (introGameKey === 'odd-one-out') isCurrentIntroGameCompleted = !!completed['Odd One Out Game'];
+      if (introGameKey === 'venn-diagram') isCurrentIntroGameCompleted = !!completed['Venn Diagram'];
+  }
 
   return (
     <div className="min-h-screen bg-sky-50 text-slate-800 p-4 md:p-8 relative isolate">
@@ -778,6 +812,7 @@ const App: React.FC = () => {
         <Suspense fallback={null}>
           <GameIntroModal
             {...currentIntroContent}
+            isCompleted={isCurrentIntroGameCompleted}
             onClose={() => setIntroGameKey(null)}
           />
         </Suspense>
