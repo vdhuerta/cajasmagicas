@@ -127,33 +127,25 @@ const ClassificationLevelModal: React.FC<ClassificationLevelModalProps> = ({ onS
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {GAME_LEVELS.filter(l => !l.isExpert).map((level, index) => {
-            const isCompleted = completedLevels[level.name];
-            const isCompletedAndLoggedIn = !!(isCompleted && user);
+            const isCompleted = !!(user && completedLevels[level.name]);
             const originalColors = levelColors[index % levelColors.length];
 
-            const colors = isCompletedAndLoggedIn
+            const colors = isCompleted
               ? {
                   cardBg: 'bg-slate-100',
                   cardBorder: 'border-slate-200',
                   titleText: 'text-slate-700',
                   iconText: 'text-slate-500',
                   iconHover: 'hover:bg-slate-200',
+                  buttonBg: 'bg-slate-500',
+                  buttonHover: 'hover:bg-slate-600',
                 }
               : originalColors;
-
-            let buttonClasses;
+            
             const buttonText = isCompleted ? 'Volver a Jugar' : 'Jugar Nivel';
+            const buttonClasses = `${colors.buttonBg} ${colors.buttonHover}`;
+            const checkIconColor = 'text-slate-500';
 
-            if (isCompletedAndLoggedIn) {
-              buttonClasses = 'bg-slate-500 hover:bg-slate-600 text-white';
-            } else if (isCompleted) {
-              buttonClasses = 'bg-green-500 hover:bg-green-600 text-white';
-            } else {
-              buttonClasses = `${originalColors.buttonBg} ${originalColors.buttonHover} text-white`;
-            }
-            
-            const checkIconColor = isCompletedAndLoggedIn ? 'text-slate-500' : 'text-green-500';
-            
             return (
               <div key={index} className={`${colors.cardBg} border ${colors.cardBorder} rounded-xl p-5 flex flex-col justify-between shadow-sm`}>
                 <div className='flex flex-col flex-grow'>
@@ -169,7 +161,7 @@ const ClassificationLevelModal: React.FC<ClassificationLevelModalProps> = ({ onS
                     <button onClick={() => speakText(level.description)} className={`p-1 rounded-full ${colors.iconHover} transition`} aria-label={`Leer en voz alta: ${level.description}`}><AudioIcon className={`w-5 h-5 ${colors.iconText}`} /></button>
                   </div>
                 </div>
-                <button onClick={() => onSelectLevel(index)} className={`mt-4 w-full px-6 py-3 ${buttonClasses} font-bold rounded-lg shadow-md transition-transform transform hover:scale-105`}>
+                <button onClick={() => onSelectLevel(index)} className={`mt-4 w-full px-6 py-3 text-white ${buttonClasses} font-bold rounded-lg shadow-md transition-transform transform hover:scale-105`}>
                     {buttonText}
                 </button>
               </div>

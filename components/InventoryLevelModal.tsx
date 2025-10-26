@@ -12,10 +12,16 @@ interface InventoryLevelModalProps {
 }
 
 const levels: { name: InventoryGameDifficulty; description: string; colors: any }[] = [
-    { name: 'Básico', description: 'Pedidos sencillos con una sola característica. ¡Perfecto para empezar!', colors: { bg: 'bg-green-500', hover: 'hover:bg-green-600', text: 'text-green-700' } },
-    { name: 'Medio', description: 'Los pedidos se complican, pidiendo dos características a la vez.', colors: { bg: 'bg-yellow-500', hover: 'hover:bg-yellow-600', text: 'text-yellow-700' } },
-    { name: 'Experto', description: '¡Un verdadero desafío! Pedidos con tres características. Solo para maestros artesanos.', colors: { bg: 'bg-red-500', hover: 'hover:bg-red-600', text: 'text-red-700' } },
+    { name: 'Básico', description: 'Pedidos sencillos con una sola característica. ¡Perfecto para empezar!', colors: { bg: 'bg-green-500', hover: 'hover:bg-green-600', text: 'text-green-700', iconHover: 'hover:bg-green-100' } },
+    { name: 'Medio', description: 'Los pedidos se complican, pidiendo dos características a la vez.', colors: { bg: 'bg-yellow-500', hover: 'hover:bg-yellow-600', text: 'text-yellow-700', iconHover: 'hover:bg-yellow-100' } },
+    { name: 'Experto', description: '¡Un verdadero desafío! Pedidos con tres características. Solo para maestros artesanos.', colors: { bg: 'bg-red-500', hover: 'hover:bg-red-600', text: 'text-red-700', iconHover: 'hover:bg-red-100' } },
 ];
+
+const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
 
 const InventoryLevelModal: React.FC<InventoryLevelModalProps> = ({ onSelectLevel, onClose, completedLevels, user }) => {
   const modalTitle = "Elige la Dificultad";
@@ -34,17 +40,20 @@ const InventoryLevelModal: React.FC<InventoryLevelModalProps> = ({ onSelectLevel
             const isCompleted = !!(user && completedLevels[levelKey]);
             
             const currentColors = isCompleted 
-                ? { bg: 'bg-slate-500', hover: 'hover:bg-slate-600', text: 'text-slate-700' } 
+                ? { bg: 'bg-slate-500', hover: 'hover:bg-slate-600', text: 'text-slate-700', iconHover: 'hover:bg-slate-200' } 
                 : level.colors;
                 
             const buttonText = isCompleted ? 'Volver a Jugar' : 'Jugar';
 
             return (
-                <div key={level.name} className={`p-4 border rounded-xl flex flex-col sm:flex-row items-center gap-4 ${isCompleted ? 'bg-slate-100 border-slate-200' : ''}`}>
+                <div key={level.name} className={`p-4 border rounded-xl flex flex-col sm:flex-row items-center gap-4 transition-colors ${isCompleted ? 'bg-slate-100 border-slate-200' : 'bg-white border-slate-200'}`}>
                     <div className="flex-grow">
                         <div className="flex items-center gap-2">
-                            <h3 className={`text-2xl font-bold ${currentColors.text}`}>{level.name}</h3>
-                             <button onClick={() => speakText(level.name)} className="p-1 rounded-full hover:bg-slate-100 transition" aria-label={`Leer: ${level.name}`}>
+                            <h3 className={`text-2xl font-bold ${currentColors.text}`}>
+                                {level.name}
+                                {isCompleted && <CheckCircleIcon className="w-6 h-6 inline-block ml-2 text-slate-500" />}
+                            </h3>
+                             <button onClick={() => speakText(level.name)} className={`p-1 rounded-full ${currentColors.iconHover} transition`} aria-label={`Leer: ${level.name}`}>
                                 <AudioIcon className={`w-5 h-5 ${currentColors.text}`} />
                              </button>
                         </div>
