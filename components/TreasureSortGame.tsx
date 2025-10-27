@@ -29,14 +29,19 @@ interface TreasureSortGameProps {
   onUnlockAchievement: (id: string) => void;
   logActivity: (message: string, type: ActivityLogType) => void;
   addScore: (points: number, message: string) => void;
+  onLevelComplete: (levelName: string) => void;
+  completedLevels: Record<string, boolean>;
+  logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore }) => {
+const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels, logPerformance }) => {
   const [activeCriterion, setActiveCriterion] = useState<keyof TreasureObject | null>(null);
   const [magicBoxes, setMagicBoxes] = useState<TreasureMagicBoxDefinition[]>([]);
   const [treasuresInPile, setTreasuresInPile] = useState<TreasureObject[]>([]);
   const [treasuresInBoxes, setTreasuresInBoxes] = useState<Record<string, TreasureObject[]>>({});
   const [isGameComplete, setIsGameComplete] = useState(false);
+  const [startTime, setStartTime] = useState<number>(0);
+  const [incorrectAttempts, setIncorrectAttempts] = useState(0);
 
   const validCriteria = availableCriteria.filter(crit =>
     ALL_TREASURE_OBJECTS.some(obj => obj[crit] !== undefined && obj[crit] !== null)
@@ -53,18 +58,33 @@ const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockA
       });
 
       if (isCorrect && !isGameComplete) {
+        const timeTakenMs = Date.now() - startTime;
+        logPerformance({
+            game_name: 'TreasureSort',
+            level_name: `Clasificación por ${TRANSLATIONS[activeCriterion]}`,
+            incorrect_attempts: incorrectAttempts,
+            time_taken_ms: timeTakenMs,
+            total_items: ALL_TREASURE_OBJECTS.length,
+        });
+
         setIsGameComplete(true);
         logActivity(`Clasificación completada por ${activeCriterion}`, 'win');
-        onUnlockAchievement('TREASURE_SORT_WIN');
-        addScore(150, `Completaste un desafío en El Baúl de los Tesoros`);
+        
+        if (!completedLevels['Treasure Sort Game']) {
+            addScore(150, `Completaste un desafío en El Baúl de los Tesoros`);
+            onUnlockAchievement('TREASURE_SORT_WIN');
+        }
+        onLevelComplete('Treasure Sort Game');
       }
     }
-  }, [treasuresInPile, treasuresInBoxes, isGameComplete, activeCriterion, magicBoxes, onUnlockAchievement, logActivity, addScore]);
+  }, [treasuresInPile, treasuresInBoxes, isGameComplete, activeCriterion, magicBoxes, onUnlockAchievement, logActivity, addScore, completedLevels, onLevelComplete, startTime, incorrectAttempts, logPerformance]);
 
   const handleCriterionSelect = (criterion: keyof TreasureObject) => {
     logActivity(`Nuevo criterio de clasificación seleccionado: ${TRANSLATIONS[criterion]}`, 'game');
     setActiveCriterion(criterion);
     setIsGameComplete(false);
+    setIncorrectAttempts(0);
+    setStartTime(Date.now());
 
     const values = [...new Set(ALL_TREASURE_OBJECTS.map(t => t[criterion]).filter(v => v !== undefined && v !== null))] as (string[] | undefined[]);
     const newBoxes: TreasureMagicBoxDefinition[] = values.map(value => ({
@@ -92,6 +112,7 @@ const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockA
         [boxId]: [...prev[boxId], treasure]
       }));
     } else {
+      setIncorrectAttempts(prev => prev + 1);
       const el = document.getElementById(treasure.id);
       if (el) {
         el.classList.add('animate-shake');

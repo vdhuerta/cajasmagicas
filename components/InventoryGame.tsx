@@ -123,11 +123,13 @@ interface InventoryGameProps {
   addScore: (points: number, message: string) => void;
   onLevelComplete: (levelName: string) => void;
   completedLevels: Record<string, boolean>;
+  logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels }) => {
+const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels, logPerformance }) => {
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
+  const [incorrectChecks, setIncorrectChecks] = useState(0);
   const [currentOrder, setCurrentOrder] = useState<InventoryOrder | null>(null);
   const [blocksInPile, setBlocksInPile] = useState<DienesBlockType[]>([]);
   const [blocksInBasket, setBlocksInBasket] = useState<DienesBlockType[]>([]);
@@ -135,11 +137,17 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
   const [feedback, setFeedback] = useState<{type: 'correct' | 'incorrect', message: string} | null>(null);
   const [isBasketOver, setIsBasketOver] = useState(false);
   const [pointsAwarded, setPointsAwarded] = useState(0);
+  const [startTime, setStartTime] = useState<number>(0);
   const basketRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     startNewRound();
-  }, [round, difficulty]);
+    setStartTime(Date.now());
+  }, [difficulty]);
+
+  useEffect(() => {
+    startNewRound();
+  }, [round]);
   
   const handleDropInBasket = useCallback((blockData: DienesBlockType) => {
     setBlocksInPile(prev => prev.filter(b => b.id !== blockData.id));
@@ -200,6 +208,15 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
               } else {
                   setIsGameOver(true);
                   const levelKey = `Inventory Game ${difficulty}`;
+                  const timeTakenMs = Date.now() - startTime;
+                  
+                   logPerformance({
+                        game_name: 'Inventory',
+                        level_name: `Nivel ${difficulty}`,
+                        incorrect_attempts: incorrectChecks,
+                        time_taken_ms: timeTakenMs,
+                        total_items: TOTAL_ROUNDS,
+                    });
                   
                   if (!completedLevels[levelKey]) {
                     let basePoints = 0;
@@ -209,7 +226,7 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
                         case 'Medio': basePoints = 150; achievementId = 'INVENTORY_MEDIUM_WIN'; break;
                         case 'Experto': basePoints = 200; achievementId = 'INVENTORY_EXPERT_WIN'; break;
                     }
-                    const totalPoints = newScore * basePoints;
+                    const totalPoints = newScore * basePoints - (incorrectChecks * 15);
                     setPointsAwarded(totalPoints);
                     if (totalPoints > 0) {
                         addScore(totalPoints, `Completaste el Inventario (${difficulty})`);
@@ -223,6 +240,7 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
               }
           }, 2000);
       } else {
+          setIncorrectChecks(prev => prev + 1);
           logActivity(`Intento incorrecto en el Inventario (Ronda ${round}, ${difficulty})`, 'system');
           let message = "¡Uy! Algo no está bien. ";
           if (!isCorrectCount) {

@@ -10,8 +10,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // NOTA: Las variables de entorno en el frontend usualmente requieren un prefijo específico 
 // del entorno de construcción (ej. VITE_ o REACT_APP_). Aquí asumimos que el entorno de 
 // despliegue las hace disponibles.
-const supabaseUrl = (window as any).process?.env?.SUPABASE_URL || 'https://blkmxffsdxgtzoautmqz.supabase.co';
-const supabaseAnonKey = (window as any).process?.env?.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsa214ZmZzZHhndHpvYXV0bXF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMjE1ODcsImV4cCI6MjA3Njc5NzU4N30.axEq8nAp7yRRqu2qCvBnqrzM0MhGLef5PapCfhf5Fv8';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://blkmxffsdxgtzoautmqz.supabase.co';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsa214ZmZzZHhndHpvYXV0bXF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMjE1ODcsImV4cCI6MjA3Njc5NzU4N30.axEq8nAp7yRRqu2qCvBnqrzM0MhGLef5PapCfhf5Fv8';
 
 // --- Inicialización del Cliente ---
 // Se crea una única instancia del cliente de Supabase que se exportará y utilizará

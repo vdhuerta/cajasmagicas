@@ -23,9 +23,10 @@ interface MatchingGameProps {
     addScore: (points: number, message: string) => void;
     onLevelComplete: (levelName: string) => void;
     completedLevels: Record<string, boolean>;
+    logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels }) => {
+const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels, logPerformance }) => {
   const [cards, setCards] = useState<DienesBlockType[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [matchedPairs, setMatchedPairs] = useState<string[]>([]);
@@ -33,6 +34,7 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
   const [isGameComplete, setIsGameComplete] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [pointsAwarded, setPointsAwarded] = useState(0);
+  const [flipCount, setFlipCount] = useState(0);
 
   useEffect(() => {
     resetGame();
@@ -48,16 +50,28 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
     setIsChecking(false);
     setIsGameComplete(false);
     setPointsAwarded(0);
+    setFlipCount(0);
     setStartTime(Date.now());
   };
   
   useEffect(() => {
       if (matchedPairs.length === PAIRS_COUNT && !isGameComplete) {
           const endTime = Date.now();
-          const elapsedSeconds = startTime ? (endTime - startTime) / 1000 : 0;
+          const timeTakenMs = startTime ? endTime - startTime : 0;
+          const elapsedSeconds = timeTakenMs / 1000;
           
+          const incorrectAttempts = Math.max(0, flipCount - (PAIRS_COUNT * 2));
+          
+          logPerformance({
+              game_name: 'Matching',
+              level_name: 'Juego de Parejas',
+              incorrect_attempts: incorrectAttempts,
+              time_taken_ms: timeTakenMs,
+              total_items: PAIRS_COUNT * 2,
+          });
+
           if (!completedLevels['Matching Game']) {
-            const points = Math.max(100, 1000 - Math.floor(elapsedSeconds * 10));
+            const points = Math.max(100, 1000 - Math.floor(elapsedSeconds * 10) - (incorrectAttempts * 5));
             setPointsAwarded(points);
             addScore(points, `Juego de Parejas completado en ${elapsedSeconds.toFixed(1)}s`);
             onUnlockAchievement('MATCHING_GAME_WIN');
@@ -67,13 +81,14 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
           logActivity('Juego de Parejas completado con éxito', 'win');
           onLevelComplete('Matching Game');
       }
-  }, [matchedPairs, onUnlockAchievement, isGameComplete, logActivity, addScore, startTime, onLevelComplete, completedLevels]);
+  }, [matchedPairs, onUnlockAchievement, isGameComplete, logActivity, addScore, startTime, onLevelComplete, completedLevels, flipCount, logPerformance]);
 
   const handleCardClick = (index: number) => {
     if (isChecking || flippedIndices.includes(index) || matchedPairs.includes(cards[index].id)) {
       return;
     }
-
+    
+    setFlipCount(prev => prev + 1);
     const newFlippedIndices = [...flippedIndices, index];
     setFlippedIndices(newFlippedIndices);
 

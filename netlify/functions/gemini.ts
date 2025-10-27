@@ -88,7 +88,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     };
 
   } catch (error) {
-    console.error("Error in Netlify function:", error);
+    console.error("Error in Netlify function:", error instanceof Error ? error.message : String(error));
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Failed to generate name from API' }),

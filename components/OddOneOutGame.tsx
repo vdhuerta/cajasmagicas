@@ -43,11 +43,13 @@ interface OddOneOutGameProps {
   addScore: (points: number, message: string) => void;
   onLevelComplete: (levelName: string) => void;
   completedLevels: Record<string, boolean>;
+  logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels }) => {
+const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels, logPerformance }) => {
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
+  const [incorrectAttempts, setIncorrectAttempts] = useState(0);
   const [blocks, setBlocks] = useState<DienesBlockType[]>([]);
   const [imposterId, setImposterId] = useState<string | null>(null);
   const [ruleDescription, setRuleDescription] = useState('');
@@ -55,6 +57,11 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [clickedBlockId, setClickedBlockId] = useState<string | null>(null);
   const [pointsAwarded, setPointsAwarded] = useState(0);
+  const [startTime, setStartTime] = useState<number>(0);
+
+  useEffect(() => {
+    resetGame();
+  }, []);
 
   useEffect(() => {
     startNewRound();
@@ -76,12 +83,21 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
     setRuleDescription(generateRuleDescription(rule));
   };
   
-  const handleEndGame = (finalScore: number) => {
+  const handleEndGame = (finalScore: number, finalIncorrect: number) => {
     setIsGameOver(true);
+    const timeTakenMs = Date.now() - startTime;
     logActivity(`El Duende Despistado completado con una puntuación de ${finalScore}/${TOTAL_ROUNDS}`, 'win');
     
+    logPerformance({
+        game_name: 'OddOneOut',
+        level_name: 'El Duende Despistado',
+        incorrect_attempts: finalIncorrect,
+        time_taken_ms: timeTakenMs,
+        total_items: TOTAL_ROUNDS,
+    });
+    
     if (!completedLevels['Odd One Out Game']) {
-      const points = finalScore * 100;
+      const points = finalScore * 100 - (finalIncorrect * 10);
       setPointsAwarded(points);
       if (points > 0) {
           addScore(points, `Obtuviste ${points} puntos en El Duende Despistado`);
@@ -99,8 +115,10 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
     logActivity('Reiniciando El Duende Despistado', 'game');
     setRound(1);
     setScore(0);
+    setIncorrectAttempts(0);
     setIsGameOver(false);
     setPointsAwarded(0);
+    setStartTime(Date.now());
     startNewRound();
   };
 
@@ -118,11 +136,12 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
         if (round < TOTAL_ROUNDS) {
           setRound(r => r + 1);
         } else {
-          handleEndGame(newScore);
+          handleEndGame(newScore, incorrectAttempts);
         }
       }, 1500);
     } else {
       logActivity(`Ronda ${round}: Intento incorrecto.`, 'system');
+      setIncorrectAttempts(prev => prev + 1);
       setFeedback('incorrect');
       const blockElement = document.getElementById(blockId);
       if (blockElement) {

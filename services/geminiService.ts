@@ -25,7 +25,7 @@ export const getMagicBoxName = async (rule: ClassificationRule): Promise<string>
         return data.name || "¡Una Caja muy Especial!";
 
     } catch (error) {
-        console.error("Error calling Netlify function:", error);
+        console.error("Error calling Netlify function:", error instanceof Error ? error.message : String(error));
         // Proporcionamos un fallback en caso de un error de red.
         return "¡El Cofre Encantado!";
     }

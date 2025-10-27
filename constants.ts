@@ -5,6 +5,10 @@ export const COLORS = [Color.Red, Color.Blue, Color.Yellow];
 export const SIZES = [Size.Small, Size.Large];
 export const THICKNESSES = [Thickness.Thick, Thickness.Thin];
 
+// Total de actividades que se pueden completar en la aplicación para calcular el progreso.
+// 5 (Clasificación) + 1 (Parejas) + 1 (Impostor) + 1 (Venn) + 3 (Inventario) + 1 (Tesoros) = 12
+export const TOTAL_TRACKABLE_ACTIVITIES = 12;
+
 export const ALL_DIENES_BLOCKS: DienesBlockType[] = [];
 let idCounter = 0;
 for (const shape of SHAPES) {
@@ -94,7 +98,7 @@ export const GAME_LEVELS: GameLevel[] = [
     },
     {
         title: "Modo Experto",
-        name: "Nivel Experto: ¡Crea tu Regla!",
+        name: "Nivel Experto",
         description: "Elige una o más propiedades para crear tu propio desafío de clasificación.",
         isExpert: true,
         boxes: []

@@ -133,3 +133,39 @@ export interface TreasureMagicBoxDefinition {
     label: string;
     rule: TreasureClassificationRule;
 }
+
+export interface PerformanceLog {
+  id?: number;
+  user_id: string;
+  created_at?: string;
+  game_name: string;
+  level_name: string;
+  incorrect_attempts: number;
+  time_taken_ms: number;
+  total_items?: number;
+}
+
+export interface ReinforcementPlan {
+  studentName: string;
+  date: string;
+  summary: {
+    totalSessions: number;
+    accuracy: number;
+    avgTimePerTask: string;
+    mainDifficulty: string;
+    overallProgress: number;
+  };
+  category: string;
+  categoryDescription: string;
+  focusArea: string;
+  context: {
+    matematico: string[];
+    didactico: {
+      dialogo: { title: string; example: string }[];
+      manipulativas: { title: string; description: string }[];
+      rutinas: { title: string; example: string }[];
+    };
+  };
+  indicators: string[];
+  conclusion: string;
+}

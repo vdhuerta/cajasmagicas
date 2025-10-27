@@ -25,9 +25,10 @@ interface VennDiagramGameProps {
   addScore: (points: number, message: string) => void;
   completedLevels: Record<string, boolean>;
   onLevelComplete: (levelName: string) => void;
+  logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, completedLevels, onLevelComplete }) => {
+const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, completedLevels, onLevelComplete, logPerformance }) => {
   const [blocksInPile, setBlocksInPile] = useState<DienesBlockType[]>([]);
   const [blocksInZones, setBlocksInZones] = useState<Record<VennZone, DienesBlockType[]>>({
     circlesOnly: [],
@@ -38,6 +39,9 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
   const [draggedOverZone, setDraggedOverZone] = useState<VennZone | null>(null);
   const [pointsAwarded, setPointsAwarded] = useState(0);
   const zonesContainerRef = useRef<HTMLDivElement>(null);
+  const [startTime, setStartTime] = useState<number>(0);
+  const [incorrectAttempts, setIncorrectAttempts] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
   
   useEffect(() => {
     startLevel();
@@ -46,25 +50,37 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
   useEffect(() => {
       const totalBlocksInZones = blocksInZones.circlesOnly.length + blocksInZones.blueOnly.length + blocksInZones.intersection.length;
       if (blocksInPile.length === 0 && totalBlocksInZones > 0 && !isGameComplete) {
+          const timeTakenMs = Date.now() - startTime;
+          logPerformance({
+              game_name: 'VennDiagram',
+              level_name: 'El Cruce Mágico',
+              incorrect_attempts: incorrectAttempts,
+              time_taken_ms: timeTakenMs,
+              total_items: totalItems
+          });
+
           setIsGameComplete(true);
           logActivity('Juego "El Cruce Mágico" completado', 'win');
           
           if (!completedLevels['Venn Diagram']) {
-              const points = 400;
+              const points = 400 - (incorrectAttempts * 10);
               setPointsAwarded(points);
               addScore(points, 'Completaste El Cruce Mágico por primera vez');
               onUnlockAchievement('VENN_DIAGRAM_WIN');
           }
           onLevelComplete('Venn Diagram');
       }
-  }, [blocksInPile, blocksInZones, isGameComplete, onUnlockAchievement, logActivity, addScore, completedLevels, onLevelComplete]);
+  }, [blocksInPile, blocksInZones, isGameComplete, onUnlockAchievement, logActivity, addScore, completedLevels, onLevelComplete, logPerformance, startTime, incorrectAttempts, totalItems]);
 
   const startLevel = () => {
     const relevantBlocks = ALL_DIENES_BLOCKS.filter(b => b.shape === Shape.Circle || b.color === Color.Blue);
     setBlocksInPile(shuffleArray(relevantBlocks));
+    setTotalItems(relevantBlocks.length);
     setBlocksInZones({ circlesOnly: [], blueOnly: [], intersection: [] });
     setIsGameComplete(false);
     setPointsAwarded(0);
+    setIncorrectAttempts(0);
+    setStartTime(Date.now());
   };
   
   const checkBlockRule = (block: DienesBlockType, zoneId: VennZone): boolean => {
@@ -87,6 +103,7 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
         [zoneId]: [...prev[zoneId], block]
       }));
     } else {
+        setIncorrectAttempts(prev => prev + 1);
         const blockElement = document.getElementById(block.id);
         if (blockElement) {
             blockElement.classList.add('animate-shake');

@@ -31,9 +31,10 @@ interface ClassificationGameProps {
   onLevelComplete: (levelName: string) => void;
   addScore: (points: number, message: string) => void;
   completedLevels: Record<string, boolean>;
+  logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGoHome, onUnlockAchievement, logActivity, onLevelComplete, addScore, completedLevels }) => {
+const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGoHome, onUnlockAchievement, logActivity, onLevelComplete, addScore, completedLevels, logPerformance }) => {
   const [blocksInPile, setBlocksInPile] = useState<DienesBlockType[]>([]);
   const [blocksInBoxes, setBlocksInBoxes] = useState<Record<string, DienesBlockType[]>>({});
   const [magicBoxNames, setMagicBoxNames] = useState<Record<string, string>>({});
@@ -41,12 +42,15 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
   const [isLevelComplete, setIsLevelComplete] = useState(false);
   const [pointsAwarded, setPointsAwarded] = useState(0);
   
+  const [startTime, setStartTime] = useState<number>(0);
+  const [incorrectAttempts, setIncorrectAttempts] = useState(0);
+  
   useEffect(() => {
     startLevel(gameLevel);
   }, [gameLevel]);
 
   useEffect(() => {
-    if (blocksInPile.length === 0 && Object.keys(blocksInBoxes).length > 0) {
+    if (blocksInPile.length === 0 && Object.keys(blocksInBoxes).length > 0 && startTime > 0) {
       const isCorrect = Object.entries(blocksInBoxes).every(([boxId, blocks]: [string, DienesBlockType[]]) => {
         const boxDef = gameLevel.boxes.find(b => b.id === boxId);
         if (!boxDef) return false;
@@ -59,6 +63,14 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
 
       if (isCorrect && !isLevelComplete) {
         setIsLevelComplete(true);
+        const timeTakenMs = Date.now() - startTime;
+        logPerformance({
+            game_name: 'Classification',
+            level_name: gameLevel.name,
+            incorrect_attempts: incorrectAttempts,
+            time_taken_ms: timeTakenMs,
+            total_items: ALL_DIENES_BLOCKS.length
+        });
         logActivity(`Nivel completado: ${gameLevel.name}`, 'win');
         
         if (!completedLevels[gameLevel.name]) {
@@ -81,7 +93,7 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
         onLevelComplete(gameLevel.name);
       }
     }
-  }, [blocksInPile, blocksInBoxes, gameLevel, onUnlockAchievement, isLevelComplete, logActivity, onLevelComplete, addScore, completedLevels]);
+  }, [blocksInPile, blocksInBoxes, gameLevel, onUnlockAchievement, isLevelComplete, logActivity, onLevelComplete, addScore, completedLevels, startTime, incorrectAttempts, logPerformance]);
 
   const startLevel = (levelData: GameLevel) => {
     setIsLevelComplete(false);
@@ -94,6 +106,8 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
     setBlocksInBoxes(initialBoxes);
     setMagicBoxNames({});
     setGeneratingNameFor(null);
+    setIncorrectAttempts(0);
+    setStartTime(Date.now());
   };
 
   const handleDrop = (boxId: string, block: DienesBlockType) => {
@@ -114,6 +128,7 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
         [boxId]: [...prev[boxId], block]
       }));
     } else {
+        setIncorrectAttempts(prev => prev + 1);
         const blockElement = document.getElementById(block.id);
         if (blockElement) {
             blockElement.classList.add('animate-shake');

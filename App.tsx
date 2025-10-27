@@ -1,9 +1,7 @@
-
-
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { speakText } from './utils/tts';
-import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType } from './types';
-import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS } from './constants';
+import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType, PerformanceLog, ReinforcementPlan } from './types';
+import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS, ALL_DIENES_BLOCKS } from './constants';
 import { HamburgerMenuIcon } from './components/icons/HamburgerMenuIcon';
 import NotificationContainer from './components/NotificationContainer';
 import { BookOpenIcon } from './components/icons/BookOpenIcon';
@@ -19,6 +17,7 @@ import { VennDiagramIcon } from './components/icons/VennDiagramIcon';
 import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
 import { TreasureChestIcon } from './components/icons/TreasureChestIcon';
 import { supabase } from './services/supabase';
+import { generateReinforcementPlan } from './services/planGenerator';
 
 // Lazy load components for better performance
 const ClassificationGame = lazy(() => import('./components/ClassificationGame'));
@@ -39,6 +38,9 @@ const ClearDataConfirmationModal = lazy(() => import('./components/ClearDataConf
 const AddToHomeScreenModal = lazy(() => import('./components/AddToHomeScreenModal'));
 const Ranking = lazy(() => import('./components/Ranking'));
 const GameIntroModal = lazy(() => import('./components/GameIntroModal'));
+const ReinforcementPlanModal = lazy(() => import('./components/ReinforcementPlanModal'));
+const DatabaseSetupModal = lazy(() => import('./components/DatabaseSetupModal'));
+
 
 type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort';
 
@@ -81,6 +83,14 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   
+  const [showReinforcementPlan, setShowReinforcementPlan] = useState(false);
+  const [planData, setPlanData] = useState<ReinforcementPlan | null>(null);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+
+  const [showDbSetupModal, setShowDbSetupModal] = useState(false);
+  const [dbSetupSql, setDbSetupSql] = useState('');
+  const [dbSetupTitle, setDbSetupTitle] = useState('');
+
   const unseenLogsCount = activityLog.filter(log => !log.seen).length;
   
   useEffect(() => {
@@ -101,57 +111,70 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
         try {
             if (session?.user) {
-                // Simplified and more robust profile fetching.
-                const { data: profile, error } = await supabase
+                // Immediately create a base profile from session data to log the user in visually.
+                const baseProfile: UserProfile = {
+                    id: session.user.id,
+                    email: session.user.email || '',
+                    firstName: session.user.user_metadata?.firstName || 'Explorador',
+                    lastName: session.user.user_metadata?.lastName || '',
+                    career: session.user.user_metadata?.career || 'Educación Parvularia',
+                    score: 0,
+                    unlockedAchievements: {},
+                    completed_levels: {},
+                };
+                
+                // Attempt to fetch the full profile from the database.
+                const { data: dbProfile, error } = await supabase
                     .from('usuarios')
                     .select('*')
                     .eq('id', session.user.id)
-                    .single(); // Use .single() to get one record or null.
+                    .single();
 
-                if (error && error.code !== 'PGRST116') { // PGRST116: "exact one row not found" which is handled by profile being null
+                if (dbProfile) {
+                    // Full profile found, merge it with the base profile.
+                    const fullProfile: UserProfile = {
+                        ...baseProfile,
+                        firstName: dbProfile.firstName || baseProfile.firstName,
+                        lastName: dbProfile.lastName || baseProfile.lastName,
+                        career: dbProfile.career || baseProfile.career,
+                        score: dbProfile.score ?? 0,
+                        unlockedAchievements: dbProfile.unlockedAchievements || {},
+                        completed_levels: dbProfile.completed_levels || {},
+                    };
+                    setCurrentUser(fullProfile);
+                } else if (error && error.code !== 'PGRST116') {
+                    // An actual error occurred while fetching. Log error and log out user.
                     console.error("Error fetching user profile:", error.message);
                     setCurrentUser(null);
-                } else if (profile) {
-                    const userProfile: UserProfile = {
-                        id: profile.id,
-                        email: profile.email,
-                        firstName: profile.firstName || 'Explorador',
-                        lastName: profile.lastName || '',
-                        career: profile.career || 'Educación Parvularia',
-                        score: profile.score ?? 0,
-                        unlockedAchievements: profile.unlockedAchievements || {},
-                        completed_levels: profile.completed_levels || {},
-                    };
-                    setCurrentUser(userProfile);
                 } else {
-                    // This is an important case: user is logged in but has no profile row.
-                    // Could be due to a delay or failure in the signup trigger. For now, we wait.
-                    // A better solution would be to create a profile here if it's missing for a certain time.
-                    console.warn(`No profile found for authenticated user: ${session.user.id}. This might be a new user.`);
-                    // Let's retry once after a short delay for new signups
+                    // No profile in DB (PGRST116), likely a new user with a slow trigger.
+                    // Set the base profile for now so the user is logged in, then retry for full data.
+                    console.warn(`No DB profile for ${session.user.id}. Using base profile and retrying.`);
+                    setCurrentUser(baseProfile);
+
                     setTimeout(async () => {
-                        const { data: delayedProfile, error: delayedError } = await supabase
+                        const { data: delayedProfile } = await supabase
                             .from('usuarios')
                             .select('*')
                             .eq('id', session.user.id)
                             .single();
+                        
                         if (delayedProfile) {
-                             const userProfile: UserProfile = {
-                                id: delayedProfile.id,
-                                email: delayedProfile.email,
-                                firstName: delayedProfile.firstName || 'Explorador',
-                                lastName: delayedProfile.lastName || '',
-                                career: delayedProfile.career || 'Educación Parvularia',
+                            const fullProfile: UserProfile = {
+                                ...baseProfile,
+                                firstName: delayedProfile.firstName || baseProfile.firstName,
+                                lastName: delayedProfile.lastName || baseProfile.lastName,
+                                career: delayedProfile.career || baseProfile.career,
                                 score: delayedProfile.score ?? 0,
                                 unlockedAchievements: delayedProfile.unlockedAchievements || {},
                                 completed_levels: delayedProfile.completed_levels || {},
                             };
-                            setCurrentUser(userProfile);
+                            setCurrentUser(fullProfile);
+                            console.log("Delayed profile fetch successful.");
                         } else {
-                            if(delayedError) console.error("Error on delayed profile fetch:", delayedError.message);
-                            setCurrentUser(null);
+                             console.warn("Delayed profile fetch also failed. User continues with base profile.");
                         }
-                    }, 2000);
+                    }, 2500);
                 }
             } else {
                 setCurrentUser(null);
@@ -296,7 +319,7 @@ const App: React.FC = () => {
       .eq('id', currentUser.id);
 
     if (error) {
-      console.error("Error updating score:", error);
+      console.error("Error updating score:", error.message);
     } else {
       setCurrentUser(prev => prev ? { ...prev, score: newScore } : null);
     }
@@ -323,7 +346,7 @@ const App: React.FC = () => {
       .update({ unlockedAchievements: newUnlocked })
       .eq('id', currentUser.id);
 
-    if (error) console.error("Error unlocking achievement:", error);
+    if (error) console.error("Error unlocking achievement:", error.message);
 
     const newNotification: Notification = {
       id: Date.now(),
@@ -345,8 +368,97 @@ const App: React.FC = () => {
         .update({ completed_levels: newCompleted })
         .eq('id', currentUser.id);
       
-      if (error) console.error("Error completing level:", error);
+      if (error) console.error("Error completing level:", error.message);
   };
+
+    const logPerformance = async (data: Omit<PerformanceLog, 'user_id'>) => {
+        if (!supabase || !currentUser) return;
+
+        const { error } = await supabase.from('performance_logs').insert([
+            { ...data, user_id: currentUser.id }
+        ]);
+
+        if (error) {
+            console.error("Error logging performance data:", error.message);
+            const userFriendlyError = `Error al guardar tu progreso. Esto puede deberse a un problema con las Políticas de Seguridad (RLS) en tu tabla 'performance_logs'. Por favor, verifica tu configuración en Supabase. Error: ${error.message}`;
+            logActivity(userFriendlyError, 'system');
+
+             if (error.message.includes('Could not find the table')) {
+                console.error("Error al registrar rendimiento: La tabla 'performance_logs' no existe en la base de datos. Por favor, créala usando el Editor SQL de Supabase para activar el Plan de Refuerzo.");
+            }
+        } else {
+            // FIX: Corrected property access from `data.levelName` to `data.level_name` to match the PerformanceLog type.
+            logActivity(`Progreso del nivel '${data.level_name}' guardado correctamente.`, 'system');
+        }
+    };
+
+    const handleGeneratePlan = async () => {
+        setIsMenuOpen(false);
+        if (!supabase || !currentUser) return;
+
+        setIsGeneratingPlan(true);
+        logActivity('Generando Plan de Refuerzo...', 'system');
+
+        const { data, error } = await supabase
+            .from('performance_logs')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error("Error fetching performance logs:", error.message);
+            if (error.message.includes('Could not find the table')) {
+                setDbSetupTitle('Tabla de Rendimiento No Encontrada');
+                setDbSetupSql(`-- 1. Crear la tabla para los registros de rendimiento
+CREATE TABLE public.performance_logs (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  game_name TEXT NOT NULL,
+  level_name TEXT NOT NULL,
+  incorrect_attempts INTEGER NOT NULL,
+  time_taken_ms INTEGER NOT NULL,
+  total_items INTEGER NOT NULL
+);
+
+-- 2. Habilitar la Seguridad a Nivel de Fila (RLS)
+ALTER TABLE public.performance_logs ENABLE ROW LEVEL SECURITY;
+
+-- 3. Crear políticas para que los usuarios gestionen sus propios registros
+CREATE POLICY "Allow users to read their own logs"
+ON public.performance_logs FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Allow users to insert their own logs"
+ON public.performance_logs FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+`);
+                setShowDbSetupModal(true);
+            } else {
+                 logActivity(`No se pudieron obtener los datos de desempeño: ${error.message}. Esto puede deberse a un problema con las políticas de seguridad (RLS) en Supabase.`, 'system');
+            }
+            setIsGeneratingPlan(false);
+            return;
+        }
+
+        const MIN_SESSIONS_FOR_PLAN = 5;
+        if (!data || data.length < MIN_SESSIONS_FOR_PLAN) {
+            logActivity(`Se necesitan al menos ${MIN_SESSIONS_FOR_PLAN} partidas jugadas en total para generar un plan. Has jugado ${data.length}. ¡Sigue así!`, 'system');
+            setIsGeneratingPlan(false);
+            return;
+        }
+
+        const plan = await generateReinforcementPlan(data as PerformanceLog[], currentUser);
+        
+        if (plan) {
+            setPlanData(plan);
+            setShowReinforcementPlan(true);
+        } else {
+             logActivity(`No se pudo generar el plan. Asegúrate de tener suficientes partidas jugadas en diferentes juegos.`, 'system');
+        }
+        
+        setIsGeneratingPlan(false);
+    };
   
   const handleStartGame = (game: Game) => {
     setIntroGameKey(null);
@@ -426,26 +538,28 @@ const App: React.FC = () => {
   };
 
   const navigate = async (game: Game | 'ranking') => {
+    setIsMenuOpen(false); // Close menu immediately for better UX
     if (game === 'ranking') {
         if (!supabase) return;
+
         const { data: users, error } = await supabase
           .from('usuarios')
           .select('id, firstName, lastName, career, score')
           .order('score', { ascending: false })
-          .limit(50);
+          .limit(20); // Changed from 50 to 20
         
         if (error) {
-          console.error("Error fetching ranking:", error);
+          console.error("Error fetching ranking:", error.message);
+          // Don't show the modal if there's an error.
         } else {
           setAllUsers(users as UserProfile[]);
+          setShowRanking(true); // Only show modal on success
         }
-        setShowRanking(true);
-        setIsMenuOpen(false);
         logActivity('Viendo la Tabla de Clasificación', 'system');
         return;
     }
+    
     setActiveGame(game);
-    setIsMenuOpen(false);
     if (game === 'home') {
       setCurrentLevel(null);
       setCurrentInventoryLevel(null);
@@ -486,7 +600,7 @@ const App: React.FC = () => {
 
     if (error) {
       // If there was an error, log it and do not change the local user state.
-      console.error("Error signing out:", error);
+      console.error("Error signing out:", error.message);
       logActivity(`Error al intentar cerrar sesión.`, 'system');
     } else {
       // If sign out was successful, update the local state.
@@ -503,6 +617,9 @@ const App: React.FC = () => {
 
   const confirmClearData = async () => {
     if (!supabase || !currentUser) return;
+    
+    // Also delete performance logs for the user
+    await supabase.from('performance_logs').delete().eq('user_id', currentUser.id);
 
     const clearedProfile = {
         score: 0,
@@ -516,7 +633,7 @@ const App: React.FC = () => {
       .eq('id', currentUser.id);
 
     if (error) {
-      console.error("Error clearing data:", error);
+      console.error("Error clearing data:", error.message);
     } else {
       setCurrentUser(prev => prev ? { ...prev, ...clearedProfile } : null);
     }
@@ -589,17 +706,17 @@ const App: React.FC = () => {
   const renderGame = () => {
     switch (activeGame) {
       case 'classification':
-        return currentLevel && <ClassificationGame gameLevel={currentLevel} onGoHome={handleChooseClassificationLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} onLevelComplete={handleLevelComplete} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} />;
+        return currentLevel && <ClassificationGame gameLevel={currentLevel} onGoHome={handleChooseClassificationLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} onLevelComplete={handleLevelComplete} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} logPerformance={logPerformance} />;
       case 'matching':
-        return <MatchingGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
+        return <MatchingGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} logPerformance={logPerformance} />;
       case 'odd-one-out':
-        return <OddOneOutGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
+        return <OddOneOutGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} logPerformance={logPerformance} />;
       case 'venn-diagram':
-        return <VennDiagramGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} onLevelComplete={handleLevelComplete} />;
+        return <VennDiagramGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} onLevelComplete={handleLevelComplete} logPerformance={logPerformance} />;
       case 'inventory':
-          return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} />;
+          return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} logPerformance={logPerformance} />;
       case 'treasure-sort':
-          return <TreasureSortGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} />;
+          return <TreasureSortGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} logPerformance={logPerformance} />;
       case 'achievements':
         return <Achievements unlockedAchievements={currentUser?.unlockedAchievements || {}} />;
       case 'classification-games':
@@ -750,6 +867,15 @@ const App: React.FC = () => {
           backgroundImage: "url('https://raw.githubusercontent.com/vdhuerta/assets-aplications/main/bosque_fondo.jpg')",
         }}
       ></div>
+       {isGeneratingPlan && (
+            <div className="fixed inset-0 bg-slate-800 bg-opacity-60 flex flex-col items-center justify-center z-[100] text-white">
+                <svg className="animate-spin h-10 w-10 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p className="text-xl font-semibold">Analizando desempeño y generando plan...</p>
+            </div>
+        )}
       <NotificationContainer notifications={notifications} setNotifications={setNotifications} />
       <header className="w-full flex justify-between items-center pb-4">
         <div className="flex items-center gap-4">
@@ -826,7 +952,7 @@ const App: React.FC = () => {
               >
                   <HamburgerMenuIcon />
               </button>
-              {isMenuOpen && <Suspense fallback={null}><Menu onNavigate={navigate} onClearData={handleClearData} user={currentUser} /></Suspense>}
+              {isMenuOpen && <Suspense fallback={null}><Menu onNavigate={navigate} onClearData={handleClearData} user={currentUser} onGeneratePlan={handleGeneratePlan} /></Suspense>}
             </div>
         </div>
       </header>
@@ -917,6 +1043,23 @@ const App: React.FC = () => {
             onClose={() => setShowRanking(false)}
           />
         </Suspense>
+      )}
+      {showReinforcementPlan && (
+            <Suspense fallback={null}>
+                <ReinforcementPlanModal
+                    plan={planData}
+                    onClose={() => setShowReinforcementPlan(false)}
+                />
+            </Suspense>
+        )}
+      {showDbSetupModal && (
+          <Suspense fallback={null}>
+              <DatabaseSetupModal
+                  title={dbSetupTitle}
+                  sqlScript={dbSetupSql}
+                  onClose={() => setShowDbSetupModal(false)}
+              />
+          </Suspense>
       )}
     </div>
   );

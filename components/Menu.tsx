@@ -6,6 +6,7 @@ import { SeriationIcon } from './icons/SeriationIcon';
 import { ConservationIcon } from './icons/ConservationIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { UserProfile } from '../types';
+import { DocumentReportIcon } from './icons/DocumentReportIcon';
 
 type NavigatableGame = 'classification-games' | 'achievements' | 'ranking';
 
@@ -13,9 +14,10 @@ interface MenuProps {
   onNavigate: (game: NavigatableGame) => void;
   onClearData: () => void;
   user: UserProfile | null;
+  onGeneratePlan: () => void;
 }
 
-const Menu: React.FC<MenuProps> = ({ onNavigate, onClearData, user }) => {
+const Menu: React.FC<MenuProps> = ({ onNavigate, onClearData, user, onGeneratePlan }) => {
   return (
     <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl z-30 animate-fade-in-down">
       <div className="py-2">
@@ -48,6 +50,14 @@ const Menu: React.FC<MenuProps> = ({ onNavigate, onClearData, user }) => {
         {user && (
           <>
             <div className="my-1 border-t border-slate-200"></div>
+            
+            <button
+              onClick={onGeneratePlan}
+              className="w-full flex items-center gap-3 px-4 py-2 text-slate-700 hover:bg-sky-100 transition"
+            >
+              <DocumentReportIcon className="w-6 h-6 text-sky-600" />
+              <span>Plan de Refuerzo</span>
+            </button>
 
             <button
               onClick={() => onNavigate('achievements')}

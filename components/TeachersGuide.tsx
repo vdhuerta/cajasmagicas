@@ -10,7 +10,7 @@ type ActiveTab = 'clasificacion' | 'seriacion' | 'conservacion';
 
 const TeachersGuide: React.FC<TeachersGuideProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('clasificacion');
-
+  
   const renderContent = () => {
     switch (activeTab) {
       case 'clasificacion':
