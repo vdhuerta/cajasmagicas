@@ -33,7 +33,7 @@ function createRuleDescription(rule: ClassificationRule): string {
 export const getMagicBoxName = async (rule: ClassificationRule): Promise<string> => {
     try {
         // La clave de API se inyecta en el entorno de construcción, por lo que process.env.API_KEY está disponible aquí.
-        if (!process.env.API_KEY) {
+        if (!import.meta.env.VITE_API_KEY) {
             console.error("Gemini API key not configured. Using fallback name.");
             return "¡El Cofre Encantado!";
         }
