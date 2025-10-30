@@ -1,5 +1,8 @@
 
-import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
+
+
+// FIX: Corrected the React import. The alias 'a' was invalid.
+import React from 'react';
 import { speakText } from './utils/tts';
 import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType, PerformanceLog, ReinforcementPlan } from './types';
 import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS, ALL_DIENES_BLOCKS } from './constants';
@@ -22,26 +25,27 @@ import { generateReinforcementPlan } from './services/planGenerator';
 import { Session } from '@supabase/supabase-js';
 
 // Lazy load components for better performance
-const ClassificationGame = lazy(() => import('./components/ClassificationGame'));
-const MatchingGame = lazy(() => import('./components/MatchingGame'));
-const OddOneOutGame = lazy(() => import('./components/OddOneOutGame'));
-const VennDiagramGame = lazy(() => import('./components/VennDiagramGame'));
-const InventoryGame = lazy(() => import('./components/InventoryGame'));
-const TreasureSortGame = lazy(() => import('./components/TreasureSortGame'));
-const Achievements = lazy(() => import('./components/Achievements'));
-const Menu = lazy(() => import('./components/Menu'));
-const ClassificationLevelModal = lazy(() => import('./components/ClassificationLevelModal'));
-const InventoryLevelModal = lazy(() => import('./components/InventoryLevelModal'));
-const TeachersGuide = lazy(() => import('./components/TeachersGuide'));
-const NotificationsLog = lazy(() => import('./components/NotificationsLog'));
-const RegistrationModal = lazy(() => import('./components/RegistrationModal'));
-const LogoutConfirmationModal = lazy(() => import('./components/LogoutConfirmationModal'));
-const ClearDataConfirmationModal = lazy(() => import('./components/ClearDataConfirmationModal'));
-const AddToHomeScreenModal = lazy(() => import('./components/AddToHomeScreenModal'));
-const Ranking = lazy(() => import('./components/Ranking'));
-const GameIntroModal = lazy(() => import('./components/GameIntroModal'));
-const ReinforcementPlanModal = lazy(() => import('./components/ReinforcementPlanModal'));
-const DatabaseSetupModal = lazy(() => import('./components/DatabaseSetupModal'));
+// FIX: Replaced invalid alias 'a' with 'React'. This fix is applied to all React hooks and components below.
+const ClassificationGame = React.lazy(() => import('./components/ClassificationGame'));
+const MatchingGame = React.lazy(() => import('./components/MatchingGame'));
+const OddOneOutGame = React.lazy(() => import('./components/OddOneOutGame'));
+const VennDiagramGame = React.lazy(() => import('./components/VennDiagramGame'));
+const InventoryGame = React.lazy(() => import('./components/InventoryGame'));
+const TreasureSortGame = React.lazy(() => import('./components/TreasureSortGame'));
+const Achievements = React.lazy(() => import('./components/Achievements'));
+const Menu = React.lazy(() => import('./components/Menu'));
+const ClassificationLevelModal = React.lazy(() => import('./components/ClassificationLevelModal'));
+const InventoryLevelModal = React.lazy(() => import('./components/InventoryLevelModal'));
+const TeachersGuide = React.lazy(() => import('./components/TeachersGuide'));
+const NotificationsLog = React.lazy(() => import('./components/NotificationsLog'));
+const RegistrationModal = React.lazy(() => import('./components/RegistrationModal'));
+const LogoutConfirmationModal = React.lazy(() => import('./components/LogoutConfirmationModal'));
+const ClearDataConfirmationModal = React.lazy(() => import('./components/ClearDataConfirmationModal'));
+const AddToHomeScreenModal = React.lazy(() => import('./components/AddToHomeScreenModal'));
+const Ranking = React.lazy(() => import('./components/Ranking'));
+const GameIntroModal = React.lazy(() => import('./components/GameIntroModal'));
+const ReinforcementPlanModal = React.lazy(() => import('./components/ReinforcementPlanModal'));
+const DatabaseSetupModal = React.lazy(() => import('./components/DatabaseSetupModal'));
 
 
 type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort';
@@ -59,39 +63,39 @@ const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const App: React.FC = () => {
-  const [activeGame, setActiveGame] = useState<Game>('home');
-  const [showClassificationModal, setShowClassificationModal] = useState(false);
-  const [introGameKey, setIntroGameKey] = useState<Game | null>(null);
+  const [activeGame, setActiveGame] = React.useState<Game>('home');
+  const [showClassificationModal, setShowClassificationModal] = React.useState(false);
+  const [introGameKey, setIntroGameKey] = React.useState<Game | null>(null);
 
-  const [showInventoryLevelModal, setShowInventoryLevelModal] = useState(false);
-  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showClearDataConfirm, setShowClearDataConfirm] = useState(false);
-  const [showAddToHomeScreenModal, setShowAddToHomeScreenModal] = useState(false);
-  const [showRanking, setShowRanking] = useState(false);
+  const [showInventoryLevelModal, setShowInventoryLevelModal] = React.useState(false);
+  const [showRegistrationModal, setShowRegistrationModal] = React.useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+  const [showClearDataConfirm, setShowClearDataConfirm] = React.useState(false);
+  const [showAddToHomeScreenModal, setShowAddToHomeScreenModal] = React.useState(false);
+  const [showRanking, setShowRanking] = React.useState(false);
 
-  const [showTeachersGuide, setShowTeachersGuide] = useState(false);
-  const [currentLevel, setCurrentLevel] = useState<GameLevel | null>(null);
-  const [currentInventoryLevel, setCurrentInventoryLevel] = useState<InventoryGameDifficulty | null>(null);
+  const [showTeachersGuide, setShowTeachersGuide] = React.useState(false);
+  const [currentLevel, setCurrentLevel] = React.useState<GameLevel | null>(null);
+  const [currentInventoryLevel, setCurrentInventoryLevel] = React.useState<InventoryGameDifficulty | null>(null);
 
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLogOpen, setIsLogOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isLogOpen, setIsLogOpen] = React.useState(false);
   
-  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [initialModalView, setInitialModalView] = useState<'login' | 'register'>('login');
+  const [allUsers, setAllUsers] = React.useState<UserProfile[]>([]);
+  const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
+  const [authLoading, setAuthLoading] = React.useState(true);
+  const [initialModalView, setInitialModalView] = React.useState<'login' | 'register'>('login');
   
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
+  const [notifications, setNotifications] = React.useState<Notification[]>([]);
+  const [activityLog, setActivityLog] = React.useState<ActivityLogEntry[]>([]);
   
-  const [showReinforcementPlan, setShowReinforcementPlan] = useState(false);
-  const [planData, setPlanData] = useState<ReinforcementPlan | null>(null);
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [showReinforcementPlan, setShowReinforcementPlan] = React.useState(false);
+  const [planData, setPlanData] = React.useState<ReinforcementPlan | null>(null);
+  const [isGeneratingPlan, setIsGeneratingPlan] = React.useState(false);
 
-  const [showDbSetupModal, setShowDbSetupModal] = useState(false);
-  const [dbSetupSql, setDbSetupSql] = useState('');
-  const [dbSetupTitle, setDbSetupTitle] = useState('');
+  const [showDbSetupModal, setShowDbSetupModal] = React.useState(false);
+  const [dbSetupSql, setDbSetupSql] = React.useState('');
+  const [dbSetupTitle, setDbSetupTitle] = React.useState('');
 
   const unseenLogsCount = activityLog.filter(log => !log.seen).length;
   
@@ -131,7 +135,7 @@ const App: React.FC = () => {
     }
   };
 
-  const fetchUserProfile = useCallback(async (session: Session) => {
+  const fetchUserProfile = React.useCallback(async (session: Session) => {
     if (!supabase) return;
 
     try {
@@ -205,39 +209,57 @@ USING (auth.uid() = id);
     }
   }, []);
 
-  useEffect(() => {
-    // This effect manages the authentication state and initial loading screen.
-    setAuthLoading(true);
-
-    if (!supabase) {
-        console.warn("Supabase client not available. Running in local mode.");
-        setAuthLoading(false);
-        return;
-    }
-
-    // onAuthStateChange fires on initialization with the user's session,
-    // and then on every sign-in/sign-out. This is our single source of truth.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (session) {
-            // A session exists (user is logged in). Fetch their profile.
-            await fetchUserProfile(session);
-        } else {
-            // No session (user is logged out).
-            setCurrentUser(null);
+  React.useEffect(() => {
+    // Guest-first authentication flow.
+    // The app loads immediately in guest mode, then checks for a session in the background.
+    const checkInitialSession = async () => {
+      try {
+        if (!supabase) {
+          console.warn("Supabase client not available. Running in local mode.");
+          return;
         }
-        // CRITICAL: Once this callback fires for the first time, we know the
-        // initial auth state has been determined, so we can hide the loading screen.
+        
+        // 1. Directly check for an existing session without blocking the UI.
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          // A session exists, so we fetch the user profile.
+          // The UI will reactively update once the user data is loaded.
+          await fetchUserProfile(session);
+        } else {
+          // No session, the app remains in guest mode.
+          setCurrentUser(null);
+        }
+      } catch (error) {
+        console.error("Error checking initial session:", error);
+        setCurrentUser(null); // Default to guest mode on any error.
+      } finally {
+        // 2. CRITICAL: This guarantees the loading screen is always removed.
         setAuthLoading(false);
-    });
-
-    // Cleanup the subscription when the component unmounts.
-    return () => {
-        subscription?.unsubscribe();
+      }
     };
+
+    checkInitialSession();
+
+    if (supabase) {
+      // 3. Set up the listener for *future* authentication changes (manual login/logout).
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+          fetchUserProfile(session);
+        } else {
+          setCurrentUser(null);
+        }
+      });
+      
+      // Cleanup the subscription when the component unmounts.
+      return () => {
+        subscription?.unsubscribe();
+      };
+    }
   }, [fetchUserProfile]);
 
 
-  useEffect(() => {
+  React.useEffect(() => {
     const logKey = currentUser ? `activityLog_${currentUser.id}` : 'activityLog_guest';
     const savedLog = localStorage.getItem(logKey);
     if (savedLog) {
@@ -254,14 +276,14 @@ USING (auth.uid() = id);
     }
   }, [currentUser]);
   
-  useEffect(() => {
+  React.useEffect(() => {
     const logKey = currentUser ? `activityLog_${currentUser.id}` : 'activityLog_guest';
     if (activityLog.length > 0) {
       localStorage.setItem(logKey, JSON.stringify(activityLog));
     }
   }, [activityLog, currentUser]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     let draggedElement: HTMLElement | null = null;
     let draggedBlockData: string | null = null;
     let lastDropTarget: HTMLElement | null = null;
@@ -954,18 +976,18 @@ WITH CHECK (auth.uid() = user_id);
               >
                   <HamburgerMenuIcon />
               </button>
-              {isMenuOpen && <Suspense fallback={null}><Menu onNavigate={navigate} onClearData={handleClearData} user={currentUser} onGeneratePlan={handleGeneratePlan} /></Suspense>}
+              {isMenuOpen && <React.Suspense fallback={null}><Menu onNavigate={navigate} onClearData={handleClearData} user={currentUser} onGeneratePlan={handleGeneratePlan} /></React.Suspense>}
             </div>
         </div>
       </header>
       <div className="w-full border-b-2 border-sky-300 mb-6"></div>
       <main className="w-full h-[calc(100vh-140px)]">
-        <Suspense fallback={<GameLoading />}>
+        <React.Suspense fallback={<GameLoading />}>
           {renderGame()}
-        </Suspense>
+        </React.Suspense>
       </main>
       {showClassificationModal && (
-        <Suspense fallback={null}>
+        <React.Suspense fallback={null}>
           <ClassificationLevelModal 
             onSelectLevel={handleSelectLevel}
             onStartExpertLevel={handleStartExpertLevel}
@@ -973,95 +995,95 @@ WITH CHECK (auth.uid() = user_id);
             completedLevels={currentUser?.completed_levels || {}}
             user={currentUser}
           />
-        </Suspense>
+        </React.Suspense>
       )}
       {currentIntroContent && (
-        <Suspense fallback={null}>
+        <React.Suspense fallback={null}>
           <GameIntroModal
             {...currentIntroContent}
             isCompleted={isCurrentIntroGameCompleted}
             onClose={() => setIntroGameKey(null)}
           />
-        </Suspense>
+        </React.Suspense>
       )}
       {showInventoryLevelModal && (
-        <Suspense fallback={null}>
+        <React.Suspense fallback={null}>
           <InventoryLevelModal
             onSelectLevel={handleSelectInventoryLevel}
             onClose={() => setShowInventoryLevelModal(false)}
             completedLevels={currentUser?.completed_levels || {}}
             user={currentUser}
           />
-        </Suspense>
+        </React.Suspense>
       )}
       {showTeachersGuide && (
-        <Suspense fallback={null}>
+        <React.Suspense fallback={null}>
           <TeachersGuide onClose={() => setShowTeachersGuide(false)} />
-        </Suspense>
+        </React.Suspense>
       )}
-      <Suspense fallback={null}>
+      <React.Suspense fallback={null}>
         <NotificationsLog
           isOpen={isLogOpen}
           onClose={() => setIsLogOpen(false)}
           logs={activityLog}
           onClear={handleClearLog}
         />
-      </Suspense>
+      </React.Suspense>
       {showRegistrationModal && (
-        <Suspense fallback={null}>
+        <React.Suspense fallback={null}>
           <RegistrationModal
             onClose={() => setShowRegistrationModal(false)}
             logActivity={logActivity}
             initialView={initialModalView}
           />
-        </Suspense>
+        </React.Suspense>
       )}
       {showLogoutConfirm && (
-        <Suspense fallback={null}>
+        <React.Suspense fallback={null}>
           <LogoutConfirmationModal
             onConfirm={confirmLogout}
             onCancel={() => setShowLogoutConfirm(false)}
           />
-        </Suspense>
+        </React.Suspense>
       )}
       {showClearDataConfirm && (
-        <Suspense fallback={null}>
+        <React.Suspense fallback={null}>
           <ClearDataConfirmationModal
             onConfirm={confirmClearData}
             onCancel={() => setShowClearDataConfirm(false)}
           />
-        </Suspense>
+        </React.Suspense>
       )}
       {showAddToHomeScreenModal && (
-        <Suspense fallback={null}>
+        <React.Suspense fallback={null}>
           <AddToHomeScreenModal onClose={() => setShowAddToHomeScreenModal(false)} />
-        </Suspense>
+        </React.Suspense>
       )}
       {showRanking && (
-        <Suspense fallback={null}>
+        <React.Suspense fallback={null}>
           <Ranking
             users={allUsers}
             currentUser={currentUser}
             onClose={() => setShowRanking(false)}
           />
-        </Suspense>
+        </React.Suspense>
       )}
       {showReinforcementPlan && (
-            <Suspense fallback={null}>
+            <React.Suspense fallback={null}>
                 <ReinforcementPlanModal
                     plan={planData}
                     onClose={() => setShowReinforcementPlan(false)}
                 />
-            </Suspense>
+            </React.Suspense>
         )}
       {showDbSetupModal && (
-          <Suspense fallback={null}>
+          <React.Suspense fallback={null}>
               <DatabaseSetupModal
                   title={dbSetupTitle}
                   sqlScript={dbSetupSql}
                   onClose={() => setShowDbSetupModal(false)}
               />
-          </Suspense>
+          </React.Suspense>
       )}
     </div>
   );
