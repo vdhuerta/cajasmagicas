@@ -130,31 +130,22 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const authTimeout = setTimeout(() => {
-        if (authLoading) {
-            console.warn("Authentication check timed out after 10 seconds. Loading in guest mode.");
-            setAuthLoading(false);
-        }
-    }, 10000);
-
     if (!supabase) {
         console.warn("Supabase client not available. Running in local mode.");
-        clearTimeout(authTimeout);
         setAuthLoading(false);
         return;
     }
 
+    // Use onAuthStateChange as the single source of truth for auth state.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (!session) {
             // User has logged out or session expired.
             setCurrentUser(null);
-            navigate('home'); // Use navigate to ensure clean state
             setAuthLoading(false);
-            clearTimeout(authTimeout);
             return;
         }
         
-        // User is logged in, fetch their profile from the database.
+        // User is logged in, attempt to fetch their profile from the database.
         try {
             const { data: dbProfile, error } = await supabase
                 .from('usuarios')
@@ -162,12 +153,12 @@ const App: React.FC = () => {
                 .eq('id', session.user.id)
                 .single();
 
-            if (error && error.code !== 'PGRST116') {
-                // An actual error occurred (e.g., RLS policy violation)
-                console.error("Error fetching user profile:", error.message);
+            // This is the critical error check for RLS issues on production.
+            if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine for a new user.
+                console.error("Error fetching user profile (likely RLS issue):", error.message);
                 logActivity(`Error al cargar el perfil. Revisa la configuración de RLS en Supabase.`, 'system');
                 
-                // Show a helpful modal to the developer/user to fix the database setup
+                // Show a helpful modal to the developer/user to fix the database setup.
                 setDbSetupTitle('Error al Cargar Perfil de Usuario');
                 setDbSetupSql(`-- Este error suele ocurrir por políticas de seguridad (RLS) incorrectas.
 -- Ejecuta este script en el Editor SQL de tu proyecto Supabase para solucionarlo.
@@ -188,7 +179,7 @@ USING (auth.uid() = id);
 `);
                 setShowDbSetupModal(true);
                 
-                // Set a base user profile to prevent the UI from breaking completely
+                // Set a minimal user profile to prevent the UI from breaking completely.
                 setCurrentUser({
                     id: session.user.id,
                     email: session.user.email || '',
@@ -202,21 +193,20 @@ USING (auth.uid() = id);
 
             } else if (dbProfile) {
                 // Profile found, populate the user object
-                const fullProfile: UserProfile = {
+                setCurrentUser({
                     id: session.user.id,
                     email: session.user.email || '',
-                    firstName: dbProfile.firstName || session.user.user_metadata?.firstName || 'Explorador',
-                    lastName: dbProfile.lastName || session.user.user_metadata?.lastName || '',
-                    career: dbProfile.career || session.user.user_metadata?.career || 'Educación Parvularia',
+                    firstName: dbProfile.firstName || 'Explorador',
+                    lastName: dbProfile.lastName || '',
+                    career: dbProfile.career || 'Educación Parvularia',
                     score: dbProfile.score ?? 0,
                     unlockedAchievements: dbProfile.unlockedAchievements || {},
                     completed_levels: dbProfile.completed_levels || {},
-                };
-                setCurrentUser(fullProfile);
+                });
             } else {
                 // No error, but no profile found in DB (e.g., new user)
                 console.warn(`No DB profile for ${session.user.id}. Using base profile.`);
-                const baseProfile: UserProfile = {
+                setCurrentUser({
                     id: session.user.id,
                     email: session.user.email || '',
                     firstName: session.user.user_metadata?.firstName || 'Explorador',
@@ -225,21 +215,18 @@ USING (auth.uid() = id);
                     score: 0,
                     unlockedAchievements: {},
                     completed_levels: {},
-                };
-                setCurrentUser(baseProfile);
+                });
             }
         } catch (e: any) {
             console.error("A critical error occurred during auth state processing:", e.message);
             setCurrentUser(null);
         } finally {
-            clearTimeout(authTimeout);
             setAuthLoading(false);
         }
     });
 
     return () => {
         subscription?.unsubscribe();
-        clearTimeout(authTimeout);
     };
   }, []);
 
@@ -604,9 +591,9 @@ WITH CHECK (auth.uid() = user_id);
   
   const confirmLogout = async () => {
     setShowLogoutConfirm(false);
-    if (!supabase || !currentUser) return;
+    if (!supabase) return;
 
-    logActivity(`Cerrando sesión para ${currentUser.firstName}...`, 'system');
+    logActivity('Cerrando sesión...', 'system');
     
     const { error } = await supabase.auth.signOut();
     
@@ -614,7 +601,10 @@ WITH CHECK (auth.uid() = user_id);
       console.error("Error signing out:", error.message);
       logActivity(`Error al intentar cerrar sesión: ${error.message}`, 'system');
     }
-    // The onAuthStateChange listener will automatically handle UI updates on successful logout.
+    // The onAuthStateChange listener will automatically set currentUser to null.
+    // We can also do it here for a faster UI response.
+    setCurrentUser(null);
+    navigate('home');
   };
   
   const handleClearData = () => {
