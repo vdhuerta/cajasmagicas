@@ -93,6 +93,42 @@ const App: React.FC = () => {
 
   const unseenLogsCount = activityLog.filter(log => !log.seen).length;
   
+  const navigate = async (game: Game | 'ranking') => {
+    setIsMenuOpen(false); // Close menu immediately for better UX
+    if (game === 'ranking') {
+        if (!supabase) return;
+
+        const { data: users, error } = await supabase
+          .from('usuarios')
+          .select('id, firstName, lastName, career, score')
+          .order('score', { ascending: false })
+          .limit(20); // Changed from 50 to 20
+        
+        if (error) {
+          console.error("Error fetching ranking:", error.message);
+          // Don't show the modal if there's an error.
+        } else {
+          setAllUsers(users as UserProfile[]);
+          setShowRanking(true); // Only show modal on success
+        }
+        logActivity('Viendo la Tabla de Clasificación', 'system');
+        return;
+    }
+    
+    setActiveGame(game);
+    if (game === 'home') {
+      setCurrentLevel(null);
+      setCurrentInventoryLevel(null);
+      logActivity('Navegando a la página de Inicio', 'system');
+    } else if (game === 'achievements') {
+      logActivity('Viendo el Salón de Logros', 'system');
+    } else if (game === 'classification-games') {
+        setCurrentLevel(null);
+        setCurrentInventoryLevel(null);
+        logActivity('Navegando a los juegos de clasificación', 'system');
+    }
+  };
+
   useEffect(() => {
     const authTimeout = setTimeout(() => {
         if (authLoading) {
@@ -109,8 +145,77 @@ const App: React.FC = () => {
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (!session) {
+            // User has logged out or session expired.
+            setCurrentUser(null);
+            navigate('home'); // Use navigate to ensure clean state
+            setAuthLoading(false);
+            clearTimeout(authTimeout);
+            return;
+        }
+        
+        // User is logged in, fetch their profile from the database.
         try {
-            if (session?.user) {
+            const { data: dbProfile, error } = await supabase
+                .from('usuarios')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                // An actual error occurred (e.g., RLS policy violation)
+                console.error("Error fetching user profile:", error.message);
+                logActivity(`Error al cargar el perfil. Revisa la configuración de RLS en Supabase.`, 'system');
+                
+                // Show a helpful modal to the developer/user to fix the database setup
+                setDbSetupTitle('Error al Cargar Perfil de Usuario');
+                setDbSetupSql(`-- Este error suele ocurrir por políticas de seguridad (RLS) incorrectas.
+-- Ejecuta este script en el Editor SQL de tu proyecto Supabase para solucionarlo.
+
+-- 1. Asegúrate de que RLS está habilitado en la tabla 'usuarios'.
+ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
+
+-- 2. Crea una política para permitir a los usuarios leer su propia información.
+-- (Si ya existe, puedes usar 'CREATE OR REPLACE POLICY')
+CREATE POLICY "Users can read their own profile"
+ON public.usuarios FOR SELECT
+USING (auth.uid() = id);
+
+-- 3. (Opcional pero recomendado) Permite a los usuarios actualizar su propio perfil.
+CREATE POLICY "Users can update their own profile"
+ON public.usuarios FOR UPDATE
+USING (auth.uid() = id);
+`);
+                setShowDbSetupModal(true);
+                
+                // Set a base user profile to prevent the UI from breaking completely
+                setCurrentUser({
+                    id: session.user.id,
+                    email: session.user.email || '',
+                    firstName: session.user.user_metadata?.firstName || 'Usuario',
+                    lastName: session.user.user_metadata?.lastName || '',
+                    career: session.user.user_metadata?.career || 'Educación Parvularia',
+                    score: 0,
+                    unlockedAchievements: {},
+                    completed_levels: {},
+                });
+
+            } else if (dbProfile) {
+                // Profile found, populate the user object
+                const fullProfile: UserProfile = {
+                    id: session.user.id,
+                    email: session.user.email || '',
+                    firstName: dbProfile.firstName || session.user.user_metadata?.firstName || 'Explorador',
+                    lastName: dbProfile.lastName || session.user.user_metadata?.lastName || '',
+                    career: dbProfile.career || session.user.user_metadata?.career || 'Educación Parvularia',
+                    score: dbProfile.score ?? 0,
+                    unlockedAchievements: dbProfile.unlockedAchievements || {},
+                    completed_levels: dbProfile.completed_levels || {},
+                };
+                setCurrentUser(fullProfile);
+            } else {
+                // No error, but no profile found in DB (e.g., new user)
+                console.warn(`No DB profile for ${session.user.id}. Using base profile.`);
                 const baseProfile: UserProfile = {
                     id: session.user.id,
                     email: session.user.email || '',
@@ -121,64 +226,10 @@ const App: React.FC = () => {
                     unlockedAchievements: {},
                     completed_levels: {},
                 };
-                
-                const { data: dbProfile, error } = await supabase
-                    .from('usuarios')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-
-                if (dbProfile) {
-                    const fullProfile: UserProfile = {
-                        ...baseProfile,
-                        firstName: dbProfile.firstName || baseProfile.firstName,
-                        lastName: dbProfile.lastName || baseProfile.lastName,
-                        career: dbProfile.career || baseProfile.career,
-                        score: dbProfile.score ?? 0,
-                        unlockedAchievements: dbProfile.unlockedAchievements || {},
-                        completed_levels: dbProfile.completed_levels || {},
-                    };
-                    setCurrentUser(fullProfile);
-                } else {
-                    if (error && error.code !== 'PGRST116') {
-                        const rlsErrorMessage = "Error al cargar el perfil. Por favor, verifica que la tabla 'usuarios' tenga las políticas de seguridad (RLS) correctas para permitir la lectura a los usuarios autenticados.";
-                        console.error("Error fetching user profile:", error.message);
-                        logActivity(rlsErrorMessage, 'system');
-                    } else {
-                        console.warn(`No DB profile for ${session.user.id}. Using base profile and retrying.`);
-                    }
-
-                    setCurrentUser(baseProfile);
-
-                    setTimeout(async () => {
-                        const { data: delayedProfile } = await supabase
-                            .from('usuarios')
-                            .select('*')
-                            .eq('id', session.user.id)
-                            .single();
-                        
-                        if (delayedProfile) {
-                            const fullProfile: UserProfile = {
-                                ...baseProfile,
-                                firstName: delayedProfile.firstName || baseProfile.firstName,
-                                lastName: delayedProfile.lastName || baseProfile.lastName,
-                                career: delayedProfile.career || baseProfile.career,
-                                score: delayedProfile.score ?? 0,
-                                unlockedAchievements: delayedProfile.unlockedAchievements || {},
-                                completed_levels: delayedProfile.completed_levels || {},
-                            };
-                            setCurrentUser(fullProfile);
-                            console.log("Delayed profile fetch successful.");
-                        } else {
-                             console.warn("Delayed profile fetch also failed. User continues with base profile.");
-                        }
-                    }, 2500);
-                }
-            } else {
-                setCurrentUser(null);
+                setCurrentUser(baseProfile);
             }
         } catch (e: any) {
-            console.error("A critical error occurred during the authentication state change:", e.message);
+            console.error("A critical error occurred during auth state processing:", e.message);
             setCurrentUser(null);
         } finally {
             clearTimeout(authTimeout);
@@ -535,42 +586,6 @@ WITH CHECK (auth.uid() = user_id);
     setShowRegistrationModal(true);
   };
 
-  const navigate = async (game: Game | 'ranking') => {
-    setIsMenuOpen(false); // Close menu immediately for better UX
-    if (game === 'ranking') {
-        if (!supabase) return;
-
-        const { data: users, error } = await supabase
-          .from('usuarios')
-          .select('id, firstName, lastName, career, score')
-          .order('score', { ascending: false })
-          .limit(20); // Changed from 50 to 20
-        
-        if (error) {
-          console.error("Error fetching ranking:", error.message);
-          // Don't show the modal if there's an error.
-        } else {
-          setAllUsers(users as UserProfile[]);
-          setShowRanking(true); // Only show modal on success
-        }
-        logActivity('Viendo la Tabla de Clasificación', 'system');
-        return;
-    }
-    
-    setActiveGame(game);
-    if (game === 'home') {
-      setCurrentLevel(null);
-      setCurrentInventoryLevel(null);
-      logActivity('Navegando a la página de Inicio', 'system');
-    } else if (game === 'achievements') {
-      logActivity('Viendo el Salón de Logros', 'system');
-    } else if (game === 'classification-games') {
-        setCurrentLevel(null);
-        setCurrentInventoryLevel(null);
-        logActivity('Navegando a los juegos de clasificación', 'system');
-    }
-  };
-
   const handleOpenLog = () => {
     setIsLogOpen(true);
     setActivityLog(prev => prev.map(log => ({ ...log, seen: true })));
@@ -588,24 +603,18 @@ WITH CHECK (auth.uid() = user_id);
   };
   
   const confirmLogout = async () => {
-    if (!supabase) return;
+    setShowLogoutConfirm(false);
+    if (!supabase || !currentUser) return;
 
-    // First, attempt to sign out from Supabase.
+    logActivity(`Cerrando sesión para ${currentUser.firstName}...`, 'system');
+    
     const { error } = await supabase.auth.signOut();
     
-    // Close the confirmation modal regardless of the outcome.
-    setShowLogoutConfirm(false);
-
     if (error) {
-      // If there was an error, log it and do not change the local user state.
       console.error("Error signing out:", error.message);
-      logActivity(`Error al intentar cerrar sesión.`, 'system');
-    } else {
-      // If sign out was successful, update the local state.
-      logActivity(`Usuario ${currentUser?.firstName} ha cerrado sesión.`, 'system');
-      setCurrentUser(null);
-      navigate('home'); // Return to home screen for a clean state.
+      logActivity(`Error al intentar cerrar sesión: ${error.message}`, 'system');
     }
+    // The onAuthStateChange listener will automatically handle UI updates on successful logout.
   };
   
   const handleClearData = () => {
