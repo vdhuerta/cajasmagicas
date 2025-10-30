@@ -1,4 +1,5 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+
+import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
 import { speakText } from './utils/tts';
 import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType, PerformanceLog, ReinforcementPlan } from './types';
 import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS, ALL_DIENES_BLOCKS } from './constants';
@@ -18,6 +19,7 @@ import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
 import { TreasureChestIcon } from './components/icons/TreasureChestIcon';
 import { supabase } from './services/supabase';
 import { generateReinforcementPlan } from './services/planGenerator';
+import { Session } from '@supabase/supabase-js';
 
 // Lazy load components for better performance
 const ClassificationGame = lazy(() => import('./components/ClassificationGame'));
@@ -129,45 +131,28 @@ const App: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (!supabase) {
-        console.warn("Supabase client not available. Running in local mode.");
-        setAuthLoading(false);
-        return;
-    }
+  const fetchUserProfile = useCallback(async (session: Session) => {
+    if (!supabase) return;
 
-    // Use onAuthStateChange as the single source of truth for auth state.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (!session) {
-            // User has logged out or session expired.
-            setCurrentUser(null);
-            setAuthLoading(false);
-            return;
-        }
-        
-        // User is logged in, attempt to fetch their profile from the database.
-        try {
-            const { data: dbProfile, error } = await supabase
-                .from('usuarios')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
+    try {
+        const { data: dbProfile, error } = await supabase
+            .from('usuarios')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-            // This is the critical error check for RLS issues on production.
-            if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine for a new user.
-                console.error("Error fetching user profile (likely RLS issue):", error.message);
-                logActivity(`Error al cargar el perfil. Revisa la configuración de RLS en Supabase.`, 'system');
-                
-                // Show a helpful modal to the developer/user to fix the database setup.
-                setDbSetupTitle('Error al Cargar Perfil de Usuario');
-                setDbSetupSql(`-- Este error suele ocurrir por políticas de seguridad (RLS) incorrectas.
+        if (error && error.code !== 'PGRST116') {
+            console.error("Error fetching user profile (likely RLS issue):", error.message);
+            logActivity(`Error al cargar el perfil. Revisa la configuración de RLS en Supabase.`, 'system');
+            
+            setDbSetupTitle('Error al Cargar Perfil de Usuario');
+            setDbSetupSql(`-- Este error suele ocurrir por políticas de seguridad (RLS) incorrectas.
 -- Ejecuta este script en el Editor SQL de tu proyecto Supabase para solucionarlo.
 
 -- 1. Asegúrate de que RLS está habilitado en la tabla 'usuarios'.
 ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
 
 -- 2. Crea una política para permitir a los usuarios leer su propia información.
--- (Si ya existe, puedes usar 'CREATE OR REPLACE POLICY')
 CREATE POLICY "Users can read their own profile"
 ON public.usuarios FOR SELECT
 USING (auth.uid() = id);
@@ -177,58 +162,84 @@ CREATE POLICY "Users can update their own profile"
 ON public.usuarios FOR UPDATE
 USING (auth.uid() = id);
 `);
-                setShowDbSetupModal(true);
-                
-                // Set a minimal user profile to prevent the UI from breaking completely.
-                setCurrentUser({
-                    id: session.user.id,
-                    email: session.user.email || '',
-                    firstName: session.user.user_metadata?.firstName || 'Usuario',
-                    lastName: session.user.user_metadata?.lastName || '',
-                    career: session.user.user_metadata?.career || 'Educación Parvularia',
-                    score: 0,
-                    unlockedAchievements: {},
-                    completed_levels: {},
-                });
+            setShowDbSetupModal(true);
+            
+            setCurrentUser({
+                id: session.user.id,
+                email: session.user.email || '',
+                firstName: session.user.user_metadata?.firstName || 'Usuario',
+                lastName: session.user.user_metadata?.lastName || '',
+                career: session.user.user_metadata?.career || 'Educación Parvularia',
+                score: 0,
+                unlockedAchievements: {},
+                completed_levels: {},
+            });
 
-            } else if (dbProfile) {
-                // Profile found, populate the user object
-                setCurrentUser({
-                    id: session.user.id,
-                    email: session.user.email || '',
-                    firstName: dbProfile.firstName || 'Explorador',
-                    lastName: dbProfile.lastName || '',
-                    career: dbProfile.career || 'Educación Parvularia',
-                    score: dbProfile.score ?? 0,
-                    unlockedAchievements: dbProfile.unlockedAchievements || {},
-                    completed_levels: dbProfile.completed_levels || {},
-                });
-            } else {
-                // No error, but no profile found in DB (e.g., new user)
-                console.warn(`No DB profile for ${session.user.id}. Using base profile.`);
-                setCurrentUser({
-                    id: session.user.id,
-                    email: session.user.email || '',
-                    firstName: session.user.user_metadata?.firstName || 'Explorador',
-                    lastName: session.user.user_metadata?.lastName || '',
-                    career: session.user.user_metadata?.career || 'Educación Parvularia',
-                    score: 0,
-                    unlockedAchievements: {},
-                    completed_levels: {},
-                });
+        } else if (dbProfile) {
+            setCurrentUser({
+                id: session.user.id,
+                email: session.user.email || '',
+                firstName: dbProfile.firstName || 'Explorador',
+                lastName: dbProfile.lastName || '',
+                career: dbProfile.career || 'Educación Parvularia',
+                score: dbProfile.score ?? 0,
+                unlockedAchievements: dbProfile.unlockedAchievements || {},
+                completed_levels: dbProfile.completed_levels || {},
+            });
+        } else {
+            console.warn(`No DB profile for ${session.user.id}. Using base profile.`);
+            setCurrentUser({
+                id: session.user.id,
+                email: session.user.email || '',
+                firstName: session.user.user_metadata?.firstName || 'Explorador',
+                lastName: session.user.user_metadata?.lastName || '',
+                career: session.user.user_metadata?.career || 'Educación Parvularia',
+                score: 0,
+                unlockedAchievements: {},
+                completed_levels: {},
+            });
+        }
+    } catch (e: any) {
+        console.error("A critical error occurred while fetching user profile:", e.message);
+        setCurrentUser(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) {
+        console.warn("Supabase client not available. Running in local mode.");
+        setAuthLoading(false);
+        return;
+    }
+
+    const initializeSession = async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                await fetchUserProfile(session);
             }
-        } catch (e: any) {
-            console.error("A critical error occurred during auth state processing:", e.message);
-            setCurrentUser(null);
+        } catch (error) {
+            console.error("Error initializing session:", error);
         } finally {
             setAuthLoading(false);
+        }
+    };
+
+    initializeSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (session) {
+            await fetchUserProfile(session);
+        } else {
+            setCurrentUser(null);
         }
     });
 
     return () => {
         subscription?.unsubscribe();
     };
-  }, []);
+  }, [fetchUserProfile]);
+
 
   useEffect(() => {
     const logKey = currentUser ? `activityLog_${currentUser.id}` : 'activityLog_guest';
@@ -602,8 +613,6 @@ WITH CHECK (auth.uid() = user_id);
       logActivity(`Error al intentar cerrar sesión: ${error.message}`, 'system');
     }
     // The onAuthStateChange listener will automatically set currentUser to null.
-    // We can also do it here for a faster UI response.
-    setCurrentUser(null);
     navigate('home');
   };
   
