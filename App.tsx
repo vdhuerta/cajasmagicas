@@ -206,35 +206,31 @@ USING (auth.uid() = id);
   }, []);
 
   useEffect(() => {
+    // This effect manages the authentication state and initial loading screen.
+    setAuthLoading(true);
+
     if (!supabase) {
         console.warn("Supabase client not available. Running in local mode.");
         setAuthLoading(false);
         return;
     }
 
-    const initializeSession = async () => {
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                await fetchUserProfile(session);
-            }
-        } catch (error) {
-            console.error("Error initializing session:", error);
-        } finally {
-            setAuthLoading(false);
-        }
-    };
-
-    initializeSession();
-
+    // onAuthStateChange fires on initialization with the user's session,
+    // and then on every sign-in/sign-out. This is our single source of truth.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session) {
+            // A session exists (user is logged in). Fetch their profile.
             await fetchUserProfile(session);
         } else {
+            // No session (user is logged out).
             setCurrentUser(null);
         }
+        // CRITICAL: Once this callback fires for the first time, we know the
+        // initial auth state has been determined, so we can hide the loading screen.
+        setAuthLoading(false);
     });
 
+    // Cleanup the subscription when the component unmounts.
     return () => {
         subscription?.unsubscribe();
     };
