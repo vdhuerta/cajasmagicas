@@ -111,7 +111,6 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
         try {
             if (session?.user) {
-                // Immediately create a base profile from session data to log the user in visually.
                 const baseProfile: UserProfile = {
                     id: session.user.id,
                     email: session.user.email || '',
@@ -123,7 +122,6 @@ const App: React.FC = () => {
                     completed_levels: {},
                 };
                 
-                // Attempt to fetch the full profile from the database.
                 const { data: dbProfile, error } = await supabase
                     .from('usuarios')
                     .select('*')
@@ -131,7 +129,6 @@ const App: React.FC = () => {
                     .single();
 
                 if (dbProfile) {
-                    // Full profile found, merge it with the base profile.
                     const fullProfile: UserProfile = {
                         ...baseProfile,
                         firstName: dbProfile.firstName || baseProfile.firstName,
@@ -142,14 +139,15 @@ const App: React.FC = () => {
                         completed_levels: dbProfile.completed_levels || {},
                     };
                     setCurrentUser(fullProfile);
-                } else if (error && error.code !== 'PGRST116') {
-                    // An actual error occurred while fetching. Log error and log out user.
-                    console.error("Error fetching user profile:", error.message);
-                    setCurrentUser(null);
                 } else {
-                    // No profile in DB (PGRST116), likely a new user with a slow trigger.
-                    // Set the base profile for now so the user is logged in, then retry for full data.
-                    console.warn(`No DB profile for ${session.user.id}. Using base profile and retrying.`);
+                    if (error && error.code !== 'PGRST116') {
+                        const rlsErrorMessage = "Error al cargar el perfil. Por favor, verifica que la tabla 'usuarios' tenga las políticas de seguridad (RLS) correctas para permitir la lectura a los usuarios autenticados.";
+                        console.error("Error fetching user profile:", error.message);
+                        logActivity(rlsErrorMessage, 'system');
+                    } else {
+                        console.warn(`No DB profile for ${session.user.id}. Using base profile and retrying.`);
+                    }
+
                     setCurrentUser(baseProfile);
 
                     setTimeout(async () => {

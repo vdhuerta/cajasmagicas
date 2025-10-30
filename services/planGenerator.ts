@@ -1,8 +1,16 @@
+import { GoogleGenAI, Type } from "@google/genai";
 import { PerformanceLog, ReinforcementPlan, UserProfile } from '../types';
 import { TOTAL_TRACKABLE_ACTIVITIES } from '../constants';
-import { GoogleGenAI } from "@google/genai";
 
-// Mapeo de nombres de juegos a habilidades cognitivas
+const pedagogicalFramework = `
+Marco Pedagógico de la Clasificación:
+La clasificación es la habilidad de agrupar objetos por semejanzas y separarlos por diferencias basándose en atributos como color, forma o tamaño. Es una operación mental clave para el pensamiento lógico-matemático en preescolares.
+Beneficios Clave:
+1.  Desarrollo Lógico: Fomenta la observación, comparación y el razonamiento analítico.
+2.  Adquisición de Vocabulario: El niño aprende y utiliza términos para describir categorías y atributos.
+3.  Base para el Número: Es una noción pre-numérica esencial. Ayuda a entender la inclusión de clases (ej., hay más 'figuras' que 'figuras rojas'), que es fundamental para comprender la cardinalidad y el concepto de número como una cantidad abstracta.
+`;
+
 const GAME_SKILL_MAP: Record<string, string> = {
     'Classification': 'Lógica de Clasificación',
     'VennDiagram': 'Lógica de Clasificación',
@@ -12,142 +20,146 @@ const GAME_SKILL_MAP: Record<string, string> = {
     'Inventory': 'Conteo y Precisión',
 };
 
-// Función para calcular la "puntuación de dificultad" para un juego
-// Un valor más alto indica mayor dificultad.
 const calculateDifficultyScore = (log: PerformanceLog): number => {
-    const timePenalty = (log.time_taken_ms / (log.total_items || 1)) / 1000; // Tiempo por ítem en segundos
-    const errorPenalty = log.incorrect_attempts * 5; // Cada error cuenta como 5 segundos de penalización
+    const timePerItem = (log.time_taken_ms / (log.total_items || 1));
+    const timePenalty = Math.min(timePerItem / 1000, 10);
+    const errorPenalty = log.incorrect_attempts * 5;
     return timePenalty + errorPenalty;
 };
 
 export const generateReinforcementPlan = async (logs: PerformanceLog[], user: UserProfile): Promise<ReinforcementPlan | null> => {
-    if (!logs || logs.length < 5) {
-        return null;
-    }
+    try {
+        if (!process.env.API_KEY) {
+            console.error("Gemini API key not configured. Cannot generate plan.");
+            return null;
+        }
 
-    const completedCount = Object.keys(user.completed_levels || {}).length;
-    const overallProgress = TOTAL_TRACKABLE_ACTIVITIES > 0
-        ? Math.round((completedCount / TOTAL_TRACKABLE_ACTIVITIES) * 100)
-        : 0;
+        // --- 1. Análisis Cuantitativo (realizado en el cliente) ---
+        const completedCount = Object.keys(user.completed_levels || {}).length;
+        const overallProgress = TOTAL_TRACKABLE_ACTIVITIES > 0
+            ? Math.round((completedCount / TOTAL_TRACKABLE_ACTIVITIES) * 100)
+            : 0;
+            
+        const classificationLogs = logs.filter(log => GAME_SKILL_MAP[log.game_name] === 'Lógica de Clasificación');
+        const correctClassificationAttempts = classificationLogs.length;
+        const incorrectClassificationAttempts = classificationLogs.reduce((acc, log) => acc + log.incorrect_attempts, 0);
+        const totalClassificationAttempts = correctClassificationAttempts + incorrectClassificationAttempts;
+        const accuracy = totalClassificationAttempts > 0 
+            ? Math.round((correctClassificationAttempts / totalClassificationAttempts) * 100)
+            : 100;
 
-    // 1. Analizar el rendimiento por habilidad cognitiva
-    const skillPerformance: Record<string, { totalDifficulty: number; count: number }> = {};
-
-    logs.forEach(log => {
-        const skill = GAME_SKILL_MAP[log.game_name];
-        if (skill) {
-            if (!skillPerformance[skill]) {
-                skillPerformance[skill] = { totalDifficulty: 0, count: 0 };
+        const totalTimeMs = logs.reduce((acc, log) => acc + log.time_taken_ms, 0);
+        const avgTimePerTask = logs.length > 0 ? `${(totalTimeMs / logs.length / 1000).toFixed(1)}s` : 'N/A';
+            
+        const skillPerformance: Record<string, { totalDifficulty: number; count: number }> = {};
+        logs.forEach(log => {
+            const skill = GAME_SKILL_MAP[log.game_name];
+            if (skill) {
+                if (!skillPerformance[skill]) skillPerformance[skill] = { totalDifficulty: 0, count: 0 };
+                skillPerformance[skill].totalDifficulty += calculateDifficultyScore(log);
+                skillPerformance[skill].count += 1;
             }
-            skillPerformance[skill].totalDifficulty += calculateDifficultyScore(log);
-            skillPerformance[skill].count += 1;
+        });
+
+        let mainDifficulty = "Ninguna dificultad mayor detectada.";
+        let weakestSkill = '';
+        let highestAvgDifficulty = 0;
+        for (const skill in skillPerformance) {
+            const avgDifficulty = skillPerformance[skill].totalDifficulty / skillPerformance[skill].count;
+            if (avgDifficulty > highestAvgDifficulty) {
+                highestAvgDifficulty = avgDifficulty;
+                weakestSkill = skill;
+            }
         }
-    });
-
-    // 2. Encontrar el área de mayor dificultad
-    let mainDifficulty = "Ninguna dificultad mayor detectada.";
-    let weakestSkill = '';
-    let highestAvgDifficulty = 0;
-
-    for (const skill in skillPerformance) {
-        const avgDifficulty = skillPerformance[skill].totalDifficulty / skillPerformance[skill].count;
-        if (avgDifficulty > highestAvgDifficulty) {
-            highestAvgDifficulty = avgDifficulty;
-            weakestSkill = skill;
+        if (weakestSkill && highestAvgDifficulty > 15) { // Umbral para identificar una dificultad
+             mainDifficulty = weakestSkill;
         }
-    }
-    
-    if (weakestSkill && highestAvgDifficulty > 10) { // Umbral de dificultad, ej. más de 10s de penalización promedio por juego
-         mainDifficulty = weakestSkill;
-    }
 
-    // 3. Generar el plan con Gemini
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+        const performanceSummary = logs.slice(0, 10).map(log => 
+            `- Juego: ${log.game_name}, Nivel: ${log.level_name}, Errores: ${log.incorrect_attempts}, Tiempo: ${(log.time_taken_ms / 1000).toFixed(1)}s`
+        ).join('\n');
 
-    const performanceSummary = logs.map(log => 
-        `- Juego: ${log.game_name}, Nivel: ${log.level_name}, Errores: ${log.incorrect_attempts}, Tiempo: ${(log.time_taken_ms / 1000).toFixed(1)}s`
-    ).join('\n');
-
-    // FIX: The prompt was malformed, causing a large number of syntax errors.
-    // It has been corrected to be a single, valid template literal string.
-    const prompt = `
+        // --- 2. Generación Cualitativa (realizada por Gemini) ---
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        
+        const prompt = `
         Eres un psicopedagogo experto en desarrollo infantil y pensamiento lógico-matemático.
-        Analiza el siguiente resumen de desempeño de un estudiante de preescolar llamado ${user.firstName} y genera un "Plan de Refuerzo Pedagógico" en formato JSON.
+        Tu única fuente de verdad y conocimiento es el siguiente Marco Pedagógico. Basa TODAS tus respuestas y recomendaciones en él.
 
-        DATOS DE DESEMPEÑO:
+        --- INICIO DEL MARCO PEDAGÓGICO (Fuente de Verdad) ---
+        ${pedagogicalFramework}
+        --- FIN DEL MARCO PEDAGÓGICO ---
+
+        Ahora, te proporciono un análisis del desempeño de un estudiante de preescolar. Tu tarea es generar las secciones CUALITATIVAS de un "Plan de Refuerzo Pedagógico".
+
+        DATOS ANALIZADOS DEL ESTUDIANTE:
+        - Nombre: ${user.firstName}
         - Área de mayor dificultad identificada: ${mainDifficulty}
-        - Total de partidas jugadas: ${logs.length}
-        - Resumen de partidas:
+        - Resumen de partidas recientes:
         ${performanceSummary}
 
-        Basado en estos datos, genera un objeto JSON con la siguiente estructura exacta. No incluyas "json" al principio ni \`\`\`.
-
-        {
-          "studentName": "${user.firstName} ${user.lastName}",
-          "date": "${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}",
-          "summary": {
-            "totalSessions": ${logs.length},
-            "accuracy": ${Math.round((1 - (logs.reduce((acc, log) => acc + log.incorrect_attempts, 0) / logs.reduce((acc, log) => acc + (log.total_items || 1), 1))) * 100)},
-            "avgTimePerTask": "${(logs.reduce((acc, log) => acc + log.time_taken_ms, 0) / logs.reduce((acc, log) => acc + (log.total_items || 1), 1) / 1000).toFixed(1)} seg/ítem",
-            "mainDifficulty": "${mainDifficulty}",
-            "overallProgress": ${overallProgress}
-          },
-          "category": "Explorador Lógico",
-          "categoryDescription": "Demuestra curiosidad y habilidad para identificar patrones básicos, sentando las bases para un razonamiento más complejo.",
-          "focusArea": "Fortalecer la flexibilidad cognitiva en tareas de clasificación.",
-          "context": {
-            "matematico": [
-              "La capacidad de clasificar objetos utilizando múltiples y variados criterios es fundamental para la construcción del concepto de número y el desarrollo del pensamiento algebraico temprano.",
-              "Dominar la clasificación flexible permite a los niños entender que los objetos pueden pertenecer a diferentes grupos simultáneamente, una idea clave en la teoría de conjuntos."
-            ],
-            "didactico": {
-              "dialogo": [
-                {"title": "Preguntas de Andamiaje", "example": "Veo que agrupaste por color. ¿De qué otra forma podríamos ordenar estos mismos objetos? ¿Qué pasaría si ahora solo miramos su forma?"},
-                {"title": "Verbalización del Pensamiento", "example": "Anima al niño a explicar por qué un objeto pertenece a un grupo. 'Cuéntame, ¿por qué pusiste este aquí?'"}
-              ],
-              "manipulativas": [
-                {"title": "Clasificación con Aros", "description": "Usa aros de hula-hula en el suelo para crear diagramas de Venn con objetos cotidianos (juguetes, ropa). Empieza con un criterio y luego introduce un segundo aro para la intersección."},
-                {"title": "El Intruso", "description": "Crea una fila de 4-5 objetos que compartan un atributo, excepto uno. Pide al niño que identifique 'al intruso' y explique por qué no pertenece al grupo."}
-              ],
-              "rutinas": [
-                {"title": "Ordenar la Compra", "example": "Al desempacar las compras, pide ayuda para agrupar los productos: 'Vamos a poner todas las frutas juntas. Ahora, todas las cosas que van en el refrigerador.'"}
-              ]
-            }
-          },
-          "indicators": [
-            "El niño es capaz de cambiar el criterio de clasificación de un conjunto de objetos cuando se le solicita.",
-            "Comienza a verbalizar los criterios que utiliza para agrupar sin necesidad de preguntas constantes.",
-            "Resuelve juegos como 'El Intruso' con mayor rapidez y precisión."
-          ],
-          "conclusion": "${user.firstName} muestra una base sólida. El enfoque en la flexibilidad cognitiva a través de estas actividades potenciará su capacidad para resolver problemas complejos en el futuro."
-        }
-
-        Instrucciones IMPORTANTES para el contenido:
+        Instrucciones para tu respuesta JSON:
+        - Basándote en el 'Área de mayor dificultad', genera las secciones 'category', 'categoryDescription', 'focusArea', 'context', 'indicators' y 'conclusion'.
         - El tono debe ser profesional, positivo y orientado a la acción para un educador.
-        - Las estrategias didácticas deben ser concretas, prácticas y adecuadas para la edad preescolar.
-        - Si 'mainDifficulty' es "Ninguna dificultad mayor detectada", el plan debe enfocarse en desafíos de nivel superior y consolidación.
-        - Si 'mainDifficulty' es 'Memoria y Atención', las estrategias deben centrarse en juegos de memoria, seguir instrucciones y atención sostenida.
-        - Si 'mainDifficulty' es 'Conteo y Precisión', las estrategias deben centrarse en correspondencia uno a uno, conteo y cuantificación.
-        - Si 'mainDifficulty' es 'Lógica de Clasificación' o 'Percepción de Diferencias', el plan debe enfocarse en identificar atributos, comparar y agrupar.
-    `;
-    
-    try {
+        - Las estrategias didácticas deben ser concretas, prácticas y adecuadas para la edad preescolar, y deben reflejar los principios del Marco Pedagógico.
+        - Si 'Área de mayor dificultad' es "Ninguna dificultad mayor detectada", el plan debe enfocarse en desafíos de nivel superior y consolidación, mencionando cómo esto afianza los conceptos del Marco Pedagógico.
+        - Si 'Área de mayor dificultad' es 'Lógica de Clasificación', enfócate en esa área, conectando las estrategias directamente con los "Beneficios Clave" del Marco Pedagógico.
+        - Rellena todos los campos del JSON con información útil y coherente basada en los datos y el marco provisto.`;
+        
+        const qualitativePlanSchema = {
+            type: Type.OBJECT,
+            properties: {
+                category: { type: Type.STRING },
+                categoryDescription: { type: Type.STRING },
+                focusArea: { type: Type.STRING },
+                context: {
+                    type: Type.OBJECT,
+                    properties: {
+                        matematico: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        didactico: {
+                            type: Type.OBJECT,
+                            properties: {
+                                dialogo: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, example: { type: Type.STRING } } } },
+                                manipulativas: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, description: { type: Type.STRING } } } },
+                                rutinas: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, example: { type: Type.STRING } } } }
+                            }
+                        }
+                    }
+                },
+                indicators: { type: Type.ARRAY, items: { type: Type.STRING } },
+                conclusion: { type: Type.STRING }
+            }
+        };
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
+                responseSchema: qualitativePlanSchema,
             }
         });
-        
-        // FIX: The Gemini API returns a `.text` property, not a function.
-        // Accessing the property directly is the correct way to get the string response.
-        const planText = response.text;
-        const planObject = JSON.parse(planText);
-        return planObject as ReinforcementPlan;
+
+        const qualitativePart = JSON.parse(response.text);
+
+        // --- 3. Ensamblaje del Plan Completo ---
+        const fullPlan: ReinforcementPlan = {
+            studentName: `${user.firstName} ${user.lastName}`,
+            date: new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }),
+            summary: {
+                totalSessions: logs.length,
+                accuracy: accuracy,
+                avgTimePerTask: avgTimePerTask,
+                mainDifficulty: mainDifficulty,
+                overallProgress: overallProgress,
+            },
+            ...qualitativePart
+        };
+
+        return fullPlan;
 
     } catch (error) {
-        console.error("Error al generar el plan con Gemini:", error);
+        console.error("Error generating reinforcement plan with Gemini API:", error instanceof Error ? error.message : String(error));
         return null;
     }
 };
