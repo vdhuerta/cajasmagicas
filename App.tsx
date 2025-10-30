@@ -1,6 +1,3 @@
-
-
-
 // FIX: Corrected the React import. The alias 'a' was invalid.
 import React from 'react';
 import { speakText } from './utils/tts';
@@ -83,7 +80,6 @@ const App: React.FC = () => {
   
   const [allUsers, setAllUsers] = React.useState<UserProfile[]>([]);
   const [currentUser, setCurrentUser] = React.useState<UserProfile | null>(null);
-  const [authLoading, setAuthLoading] = React.useState(true);
   const [initialModalView, setInitialModalView] = React.useState<'login' | 'register'>('login');
   
   const [notifications, setNotifications] = React.useState<Notification[]>([]);
@@ -210,53 +206,26 @@ USING (auth.uid() = id);
   }, []);
 
   React.useEffect(() => {
-    // Guest-first authentication flow.
-    // The app loads immediately in guest mode, then checks for a session in the background.
-    const checkInitialSession = async () => {
-      try {
-        if (!supabase) {
-          console.warn("Supabase client not available. Running in local mode.");
-          return;
-        }
-        
-        // 1. Directly check for an existing session without blocking the UI.
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          // A session exists, so we fetch the user profile.
-          // The UI will reactively update once the user data is loaded.
-          await fetchUserProfile(session);
-        } else {
-          // No session, the app remains in guest mode.
-          setCurrentUser(null);
-        }
-      } catch (error) {
-        console.error("Error checking initial session:", error);
-        setCurrentUser(null); // Default to guest mode on any error.
-      } finally {
-        // 2. CRITICAL: This guarantees the loading screen is always removed.
-        setAuthLoading(false);
-      }
-    };
-
-    checkInitialSession();
-
+    // No initial session check. The app loads in guest mode by default.
+    // The onAuthStateChange listener is the ONLY thing that will set a user.
+    // This is triggered by supabase.auth.signInWithPassword, signOut, etc.
     if (supabase) {
-      // 3. Set up the listener for *future* authentication changes (manual login/logout).
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session) {
+          // This will be called after a successful login.
           fetchUserProfile(session);
         } else {
+          // This will be called after a successful logout.
           setCurrentUser(null);
         }
       });
-      
-      // Cleanup the subscription when the component unmounts.
+
+      // Cleanup subscription on component unmount
       return () => {
         subscription?.unsubscribe();
       };
     }
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile]); // fetchUserProfile is stable due to useCallback
 
 
   React.useEffect(() => {
@@ -837,13 +806,6 @@ WITH CHECK (auth.uid() = user_id);
         );
       case 'home':
       default:
-        if (authLoading) {
-          return (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-                <p className="text-xl text-slate-600 animate-pulse">Cargando Bosque Mágico...</p>
-            </div>
-          );
-        }
         return (
           <div className="flex flex-col items-center justify-center h-full text-center">
              <h1 className="text-5xl font-bold text-sky-700 mb-4">¡Bienvenido al Bosque Mágico!</h1>
