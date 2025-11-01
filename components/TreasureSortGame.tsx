@@ -1,11 +1,13 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { TreasureObject, TreasureClassificationRule, TreasureMagicBoxDefinition, ObjectType, Color, Size, Pattern, Holes, ActivityLogType } from '../types';
+import { TreasureObject, TreasureClassificationRule, TreasureMagicBoxDefinition, ActivityLogType } from '../types';
 import { ALL_TREASURE_OBJECTS, TRANSLATIONS } from '../constants';
 import TreasureObjectDisplay from './TreasureObjectDisplay';
 import MagicBox from './MagicBox';
 import { AudioIcon } from './icons/AudioIcon';
 import { speakText } from '../utils/tts';
+import HoverHelper from './HoverHelper';
 
 const shuffleArray = <T,>(array: T[]): T[] => {
   const newArray = [...array];
@@ -22,19 +24,18 @@ const checkTreasureRule = (treasure: TreasureObject, rule: TreasureClassificatio
     });
 };
 
-const availableCriteria: (keyof TreasureObject)[] = ['objectType', 'color', 'size', 'pattern', 'holes'];
+const availableCriteria: (keyof Omit<TreasureObject, 'id'>)[] = ['objectType', 'color', 'size', 'pattern', 'holes'];
 
 interface TreasureSortGameProps {
   onGoHome: () => void;
   onUnlockAchievement: (id: string) => void;
-  logActivity: (message: string, type: ActivityLogType) => void;
+  logActivity: (message: string, type: ActivityLogType, pointsEarned?: number) => void;
   addScore: (points: number, message: string) => void;
-  onLevelComplete: (levelName: string) => void;
-  completedLevels: Record<string, boolean>;
+  completedActivities: Set<string>;
   logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels, logPerformance }) => {
+const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, completedActivities, logPerformance }) => {
   const [activeCriterion, setActiveCriterion] = useState<keyof TreasureObject | null>(null);
   const [magicBoxes, setMagicBoxes] = useState<TreasureMagicBoxDefinition[]>([]);
   const [treasuresInPile, setTreasuresInPile] = useState<TreasureObject[]>([]);
@@ -53,7 +54,14 @@ const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockA
       const isCorrect = Object.entries(treasuresInBoxes).every(([boxId, treasures]) => {
         const boxDef = magicBoxes.find(b => b.id === boxId);
         if (!boxDef) return false;
-        // FIX: Cast `treasures` to `TreasureObject[]` to resolve the type error where `every` was not found on type `unknown`.
+
+        // FIX: Handle "other" box check for completion
+        if (Object.keys(boxDef.rule).length === 0 && boxId.endsWith('-other')) {
+            if (!activeCriterion) return false;
+            const criterion = activeCriterion;
+            return (treasures as TreasureObject[]).every(treasure => treasure[criterion] === undefined || treasure[criterion] === null);
+        }
+        
         return (treasures as TreasureObject[]).every(treasure => checkTreasureRule(treasure, boxDef.rule));
       });
 
@@ -61,23 +69,22 @@ const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockA
         const timeTakenMs = Date.now() - startTime;
         logPerformance({
             game_name: 'TreasureSort',
-            level_name: `Clasificación por ${TRANSLATIONS[activeCriterion]}`,
+            level_name: 'treasure_sort_game',
             incorrect_attempts: incorrectAttempts,
             time_taken_ms: timeTakenMs,
             total_items: ALL_TREASURE_OBJECTS.length,
         });
 
         setIsGameComplete(true);
-        logActivity(`Clasificación completada por ${activeCriterion}`, 'win');
+        logActivity(`Clasificación completada por ${TRANSLATIONS[activeCriterion]}`, 'win');
         
-        if (!completedLevels['Treasure Sort Game']) {
+        if (!completedActivities.has('treasure_sort_game')) {
             addScore(150, `Completaste un desafío en El Baúl de los Tesoros`);
             onUnlockAchievement('TREASURE_SORT_WIN');
         }
-        onLevelComplete('Treasure Sort Game');
       }
     }
-  }, [treasuresInPile, treasuresInBoxes, isGameComplete, activeCriterion, magicBoxes, onUnlockAchievement, logActivity, addScore, completedLevels, onLevelComplete, startTime, incorrectAttempts, logPerformance]);
+  }, [treasuresInPile, treasuresInBoxes, isGameComplete, activeCriterion, magicBoxes, onUnlockAchievement, logActivity, addScore, completedActivities, logPerformance, startTime, incorrectAttempts]);
 
   const handleCriterionSelect = (criterion: keyof TreasureObject) => {
     logActivity(`Nuevo criterio de clasificación seleccionado: ${TRANSLATIONS[criterion]}`, 'game');
@@ -86,12 +93,22 @@ const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockA
     setIncorrectAttempts(0);
     setStartTime(Date.now());
 
-    const values = [...new Set(ALL_TREASURE_OBJECTS.map(t => t[criterion]).filter(v => v !== undefined && v !== null))] as (string[] | undefined[]);
+    const values = [...new Set(ALL_TREASURE_OBJECTS.map(t => t[criterion]).filter(v => v !== undefined && v !== null))] as string[];
     const newBoxes: TreasureMagicBoxDefinition[] = values.map(value => ({
       id: `box-${criterion}-${value}`,
       label: `${TRANSLATIONS[value!]}`,
       rule: { [criterion]: value } as TreasureClassificationRule
     }));
+
+    // FIX: Check if any object lacks this criterion. If so, add an "other" box.
+    const hasUndefined = ALL_TREASURE_OBJECTS.some(t => t[criterion] === undefined || t[criterion] === null);
+    if (hasUndefined) {
+        newBoxes.push({
+            id: `box-${criterion}-other`,
+            label: 'Otros',
+            rule: {} // Special rule for "other"
+        });
+    }
 
     setMagicBoxes(newBoxes);
     setTreasuresInPile(shuffleArray(ALL_TREASURE_OBJECTS));
@@ -105,7 +122,17 @@ const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockA
     const boxDef = magicBoxes.find(b => b.id === boxId);
     if (!boxDef) return;
 
-    if (checkTreasureRule(treasure, boxDef.rule)) {
+    // FIX: Add special handling for the "other" box
+    let isCorrectDrop = false;
+    if (Object.keys(boxDef.rule).length === 0 && boxId.endsWith('-other')) {
+        if (activeCriterion) {
+            isCorrectDrop = treasure[activeCriterion] === undefined || treasure[activeCriterion] === null;
+        }
+    } else {
+        isCorrectDrop = checkTreasureRule(treasure, boxDef.rule);
+    }
+
+    if (isCorrectDrop) {
       setTreasuresInPile(prev => prev.filter(t => t.id !== treasure.id));
       setTreasuresInBoxes(prev => ({
         ...prev,
@@ -144,7 +171,7 @@ const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockA
                     </button>
                 </div>
                 <div className="flex justify-center gap-4">
-                    <button onClick={() => { setActiveCriterion(null); setIsGameComplete(false); }} className="px-6 py-3 bg-green-500 text-white font-bold rounded-lg shadow-lg hover:bg-green-600 transition">Elegir otra Regla</button>
+                    <button onClick={() => { setActiveCriterion(null); setIsGameComplete(false); setMagicBoxes([]); }} className="px-6 py-3 bg-green-500 text-white font-bold rounded-lg shadow-lg hover:bg-green-600 transition">Elegir otra Regla</button>
                     <button onClick={onGoHome} className="px-6 py-3 bg-gray-400 text-white font-bold rounded-lg shadow-lg hover:bg-gray-500 transition">Otros Juegos</button>
                 </div>
             </div>
@@ -177,6 +204,7 @@ const TreasureSortGame: React.FC<TreasureSortGameProps> = ({ onGoHome, onUnlockA
                     <TreasureObjectDisplay key={treasure.id} treasure={treasure} />
                 ))}
             </div>
+            <HoverHelper text="Pasa el cursor sobre un tesoro para ver sus detalles." />
         </>
       ) : (
         <div className="flex-grow flex items-center justify-center text-center text-slate-500 bg-emerald-50 rounded-2xl shadow-inner">

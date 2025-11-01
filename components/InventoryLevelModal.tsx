@@ -7,7 +7,7 @@ import { AudioIcon } from './icons/AudioIcon';
 interface InventoryLevelModalProps {
   onSelectLevel: (difficulty: InventoryGameDifficulty) => void;
   onClose: () => void;
-  completedLevels: Record<string, boolean>;
+  completedLevels: Set<string>;
   user: UserProfile | null;
 }
 
@@ -30,8 +30,9 @@ const InventoryLevelModal: React.FC<InventoryLevelModalProps> = ({ onSelectLevel
         </div>
         <div className="space-y-4">
           {levels.map((level) => {
-            const levelKey = `Inventory Game ${level.name}`;
-            const isCompleted = !!(user && completedLevels[levelKey]);
+            const difficultyMap: Record<InventoryGameDifficulty, string> = { 'Básico': 'basic', 'Medio': 'medium', 'Experto': 'expert' };
+            const levelKey = `inventory_${difficultyMap[level.name]}`;
+            const isCompleted = !!(user && completedLevels.has(levelKey));
             
             const currentColors = isCompleted 
                 ? { bg: 'bg-slate-500', hover: 'hover:bg-slate-600', text: 'text-slate-700' } 

@@ -11,16 +11,16 @@ export const ButtonIcon: React.FC<ButtonIconProps> = ({ className, holes }) => (
     <circle cx="50" cy="50" r="48" stroke="currentColor" strokeOpacity="0.5" strokeWidth="4" fill="currentColor" fillOpacity="0.8" />
     {holes === Holes.Two && (
       <>
-        <circle cx="35" cy="50" r="6" fill="currentColor" opacity="0.4" />
-        <circle cx="65" cy="50" r="6" fill="currentColor" opacity="0.4" />
+        <circle cx="35" cy="50" r="6" fill="currentColor" opacity="0.6" />
+        <circle cx="65" cy="50" r="6" fill="currentColor" opacity="0.6" />
       </>
     )}
     {holes === Holes.Four && (
       <>
-        <circle cx="35" cy="35" r="6" fill="currentColor" opacity="0.4" />
-        <circle cx="65" cy="35" r="6" fill="currentColor" opacity="0.4" />
-        <circle cx="35" cy="65" r="6" fill="currentColor" opacity="0.4" />
-        <circle cx="65" cy="65" r="6" fill="currentColor" opacity="0.4" />
+        <circle cx="35" cy="35" r="6" fill="currentColor" opacity="0.6" />
+        <circle cx="65" cy="35" r="6" fill="currentColor" opacity="0.6" />
+        <circle cx="35" cy="65" r="6" fill="currentColor" opacity="0.6" />
+        <circle cx="65" cy="65" r="6" fill="currentColor" opacity="0.6" />
       </>
     )}
   </svg>

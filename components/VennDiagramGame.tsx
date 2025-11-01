@@ -6,6 +6,7 @@ import { ALL_DIENES_BLOCKS } from '../constants';
 import DienesBlock from './DienesBlock';
 import { speakText } from '../utils/tts';
 import { AudioIcon } from './icons/AudioIcon';
+import HoverHelper from './HoverHelper';
 
 const shuffleArray = <T,>(array: T[]): T[] => {
   const newArray = [...array];
@@ -21,14 +22,13 @@ type VennZone = 'circlesOnly' | 'blueOnly' | 'intersection';
 interface VennDiagramGameProps {
   onGoHome: () => void;
   onUnlockAchievement: (id: string) => void;
-  logActivity: (message: string, type: ActivityLogType) => void;
+  logActivity: (message: string, type: ActivityLogType, pointsEarned?: number) => void;
   addScore: (points: number, message: string) => void;
-  completedLevels: Record<string, boolean>;
-  onLevelComplete: (levelName: string) => void;
+  completedActivities: Set<string>;
   logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, completedLevels, onLevelComplete, logPerformance }) => {
+const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, completedActivities, logPerformance }) => {
   const [blocksInPile, setBlocksInPile] = useState<DienesBlockType[]>([]);
   const [blocksInZones, setBlocksInZones] = useState<Record<VennZone, DienesBlockType[]>>({
     circlesOnly: [],
@@ -53,7 +53,7 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
           const timeTakenMs = Date.now() - startTime;
           logPerformance({
               game_name: 'VennDiagram',
-              level_name: 'El Cruce Mágico',
+              level_name: 'venn_diagram',
               incorrect_attempts: incorrectAttempts,
               time_taken_ms: timeTakenMs,
               total_items: totalItems
@@ -62,15 +62,14 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
           setIsGameComplete(true);
           logActivity('Juego "El Cruce Mágico" completado', 'win');
           
-          if (!completedLevels['Venn Diagram']) {
+          if (!completedActivities.has('venn_diagram')) {
               const points = 400 - (incorrectAttempts * 10);
               setPointsAwarded(points);
               addScore(points, 'Completaste El Cruce Mágico por primera vez');
               onUnlockAchievement('VENN_DIAGRAM_WIN');
           }
-          onLevelComplete('Venn Diagram');
       }
-  }, [blocksInPile, blocksInZones, isGameComplete, onUnlockAchievement, logActivity, addScore, completedLevels, onLevelComplete, logPerformance, startTime, incorrectAttempts, totalItems]);
+  }, [blocksInPile, blocksInZones, isGameComplete, onUnlockAchievement, logActivity, addScore, completedActivities, logPerformance, startTime, incorrectAttempts, totalItems]);
 
   const startLevel = () => {
     const relevantBlocks = ALL_DIENES_BLOCKS.filter(b => b.shape === Shape.Circle || b.color === Color.Blue);
@@ -234,6 +233,7 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
           <DienesBlock key={block.id} block={block} />
         ))}
       </div>
+      <HoverHelper text="Pasa el cursor sobre una figura para ver sus detalles." />
        <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }

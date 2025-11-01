@@ -12,7 +12,7 @@ interface ClassificationLevelModalProps {
   onSelectLevel: (levelIndex: number) => void;
   onStartExpertLevel: (rule: ClassificationRule) => void;
   onClose: () => void;
-  completedLevels: Record<string, boolean>;
+  completedLevels: Set<string>;
   user: UserProfile | null;
 }
 
@@ -127,7 +127,7 @@ const ClassificationLevelModal: React.FC<ClassificationLevelModalProps> = ({ onS
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {GAME_LEVELS.filter(l => !l.isExpert).map((level, index) => {
-            const isCompleted = completedLevels[level.name];
+            const isCompleted = completedLevels.has(level.id);
             const isCompletedAndLoggedIn = !!(isCompleted && user);
             const originalColors = levelColors[index % levelColors.length];
 

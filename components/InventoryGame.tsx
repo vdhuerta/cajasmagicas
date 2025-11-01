@@ -7,6 +7,7 @@ import DienesBlock from './DienesBlock';
 import { speakText } from '../utils/tts';
 import { AudioIcon } from './icons/AudioIcon';
 import { ElfIcon } from './icons/ElfIcon';
+import HoverHelper from './HoverHelper';
 
 const TOTAL_ROUNDS = 3;
 
@@ -119,14 +120,13 @@ interface InventoryGameProps {
   difficulty: InventoryGameDifficulty;
   onGoHome: () => void;
   onUnlockAchievement: (id: string) => void;
-  logActivity: (message: string, type: ActivityLogType) => void;
+  logActivity: (message: string, type: ActivityLogType, pointsEarned?: number) => void;
   addScore: (points: number, message: string) => void;
-  onLevelComplete: (levelName: string) => void;
-  completedLevels: Record<string, boolean>;
+  completedActivities: Set<string>;
   logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels, logPerformance }) => {
+const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onUnlockAchievement, logActivity, addScore, completedActivities, logPerformance }) => {
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
   const [incorrectChecks, setIncorrectChecks] = useState(0);
@@ -207,18 +207,19 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
                   setRound(r => r + 1);
               } else {
                   setIsGameOver(true);
-                  const levelKey = `Inventory Game ${difficulty}`;
+                  const difficultyMap = { 'Básico': 'basic', 'Medio': 'medium', 'Experto': 'expert' };
+                  const levelKey = `inventory_${difficultyMap[difficulty]}`;
                   const timeTakenMs = Date.now() - startTime;
                   
                    logPerformance({
                         game_name: 'Inventory',
-                        level_name: `Nivel ${difficulty}`,
+                        level_name: levelKey,
                         incorrect_attempts: incorrectChecks,
                         time_taken_ms: timeTakenMs,
                         total_items: TOTAL_ROUNDS,
                     });
                   
-                  if (!completedLevels[levelKey]) {
+                  if (!completedActivities.has(levelKey)) {
                     let basePoints = 0;
                     let achievementId: string | null = null;
                     switch(difficulty) {
@@ -235,7 +236,6 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
                         onUnlockAchievement(achievementId);
                     }
                   }
-                  onLevelComplete(levelKey);
                   logActivity(`Juego del Inventario (${difficulty}) completado con ${newScore} aciertos.`, 'win');
               }
           }, 2000);
@@ -345,6 +345,7 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
                 <DienesBlock key={block.id} block={block} />
             ))}
         </div>
+        <HoverHelper text="Pasa el cursor sobre una figura para ver sus detalles." />
     </div>
   );
 };

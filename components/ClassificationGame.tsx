@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DienesBlockType, ClassificationRule, MagicBoxDefinition, GameLevel, ActivityLogType } from '../types';
+import { DienesBlockType, ClassificationRule, MagicBoxDefinition, GameLevel, ActivityLogType, TreasureObject } from '../types';
 import { ALL_DIENES_BLOCKS } from '../constants';
 import DienesBlock from './DienesBlock';
 import MagicBox from './MagicBox';
@@ -7,6 +7,7 @@ import { getMagicBoxName } from '../services/geminiService';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { AudioIcon } from './icons/AudioIcon';
 import { speakText } from '../utils/tts';
+import HoverHelper from './HoverHelper';
 
 const shuffleArray = <T,>(array: T[]): T[] => {
   const newArray = [...array];
@@ -27,14 +28,13 @@ interface ClassificationGameProps {
   gameLevel: GameLevel;
   onGoHome: () => void;
   onUnlockAchievement: (id: string) => void;
-  logActivity: (message: string, type: ActivityLogType) => void;
-  onLevelComplete: (levelName: string) => void;
+  logActivity: (message: string, type: ActivityLogType, pointsEarned?: number) => void;
   addScore: (points: number, message: string) => void;
-  completedLevels: Record<string, boolean>;
+  completedActivities: Set<string>;
   logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGoHome, onUnlockAchievement, logActivity, onLevelComplete, addScore, completedLevels, logPerformance }) => {
+const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGoHome, onUnlockAchievement, logActivity, addScore, completedActivities, logPerformance }) => {
   const [blocksInPile, setBlocksInPile] = useState<DienesBlockType[]>([]);
   const [blocksInBoxes, setBlocksInBoxes] = useState<Record<string, DienesBlockType[]>>({});
   const [magicBoxNames, setMagicBoxNames] = useState<Record<string, string>>({});
@@ -66,20 +66,20 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
         const timeTakenMs = Date.now() - startTime;
         logPerformance({
             game_name: 'Classification',
-            level_name: gameLevel.name,
+            level_name: gameLevel.id, // Use the stable ID for logging
             incorrect_attempts: incorrectAttempts,
             time_taken_ms: timeTakenMs,
             total_items: ALL_DIENES_BLOCKS.length
         });
         logActivity(`Nivel completado: ${gameLevel.name}`, 'win');
         
-        if (!completedLevels[gameLevel.name]) {
+        if (!completedActivities.has(gameLevel.id)) {
             let points = 0;
             let achievementId: string | null = null;
-            if (gameLevel.name.includes("Nivel 1")) { points = 100; achievementId = 'CLASSIFICATION_LVL_1'; }
-            if (gameLevel.name.includes("Nivel 2")) { points = 150; achievementId = 'CLASSIFICATION_LVL_2'; }
-            if (gameLevel.name.includes("Nivel 3")) { points = 200; achievementId = 'CLASSIFICATION_LVL_3'; }
-            if (gameLevel.name.includes("Nivel 4")) { points = 250; achievementId = 'CLASSIFICATION_LVL_4'; }
+            if (gameLevel.id.includes("classification_1")) { points = 100; achievementId = 'CLASSIFICATION_LVL_1'; }
+            if (gameLevel.id.includes("classification_2")) { points = 150; achievementId = 'CLASSIFICATION_LVL_2'; }
+            if (gameLevel.id.includes("classification_3")) { points = 200; achievementId = 'CLASSIFICATION_LVL_3'; }
+            if (gameLevel.id.includes("classification_4")) { points = 250; achievementId = 'CLASSIFICATION_LVL_4'; }
             if (gameLevel.isExpert) { points = 300; achievementId = 'CLASSIFICATION_EXPERT'; }
             
             if (points > 0) {
@@ -90,10 +90,9 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
                 onUnlockAchievement(achievementId);
             }
         }
-        onLevelComplete(gameLevel.name);
       }
     }
-  }, [blocksInPile, blocksInBoxes, gameLevel, onUnlockAchievement, isLevelComplete, logActivity, onLevelComplete, addScore, completedLevels, startTime, incorrectAttempts, logPerformance]);
+  }, [blocksInPile, blocksInBoxes, gameLevel, onUnlockAchievement, isLevelComplete, logActivity, addScore, completedActivities, startTime, incorrectAttempts, logPerformance]);
 
   const startLevel = (levelData: GameLevel) => {
     setIsLevelComplete(false);
@@ -110,7 +109,13 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
     setStartTime(Date.now());
   };
 
-  const handleDrop = (boxId: string, block: DienesBlockType) => {
+  const handleDrop = (boxId: string, item: DienesBlockType | TreasureObject) => {
+    // This game only uses DienesBlockType, so add a type guard.
+    if (!('shape' in item && 'thickness' in item)) {
+        return;
+    }
+    const block = item as DienesBlockType;
+
     const boxDef = gameLevel.boxes.find(b => b.id === boxId)!;
     let isCorrectDrop;
 
@@ -229,6 +234,7 @@ const ClassificationGame: React.FC<ClassificationGameProps> = ({ gameLevel, onGo
           <DienesBlock key={block.id} block={block} />
         ))}
       </div>
+      <HoverHelper text="Pasa el cursor sobre una figura para ver sus detalles." />
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }

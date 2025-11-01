@@ -1,8 +1,8 @@
 // FIX: Corrected the React import. The alias 'a' was invalid.
 import React from 'react';
 import { speakText } from './utils/tts';
-import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType, PerformanceLog, ReinforcementPlan } from './types';
-import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS, ALL_DIENES_BLOCKS } from './constants';
+import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType, PerformanceLog } from './types';
+import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS } from './constants';
 import { HamburgerMenuIcon } from './components/icons/HamburgerMenuIcon';
 import NotificationContainer from './components/NotificationContainer';
 import { BookOpenIcon } from './components/icons/BookOpenIcon';
@@ -18,7 +18,6 @@ import { VennDiagramIcon } from './components/icons/VennDiagramIcon';
 import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
 import { TreasureChestIcon } from './components/icons/TreasureChestIcon';
 import { supabase } from './services/supabase';
-import { generateReinforcementPlan } from './services/planGenerator';
 import { Session } from '@supabase/supabase-js';
 
 // Lazy load components for better performance
@@ -41,8 +40,7 @@ const ClearDataConfirmationModal = React.lazy(() => import('./components/ClearDa
 const AddToHomeScreenModal = React.lazy(() => import('./components/AddToHomeScreenModal'));
 const Ranking = React.lazy(() => import('./components/Ranking'));
 const GameIntroModal = React.lazy(() => import('./components/GameIntroModal'));
-const ReinforcementPlanModal = React.lazy(() => import('./components/ReinforcementPlanModal'));
-const DatabaseSetupModal = React.lazy(() => import('./components/DatabaseSetupModal'));
+const PerformanceDashboard = React.lazy(() => import('./components/PerformanceDashboard'));
 
 
 type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort';
@@ -85,13 +83,12 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = React.useState<Notification[]>([]);
   const [activityLog, setActivityLog] = React.useState<ActivityLogEntry[]>([]);
   
-  const [showReinforcementPlan, setShowReinforcementPlan] = React.useState(false);
-  const [planData, setPlanData] = React.useState<ReinforcementPlan | null>(null);
-  const [isGeneratingPlan, setIsGeneratingPlan] = React.useState(false);
+  const [showPerformanceDashboard, setShowPerformanceDashboard] = React.useState(false);
+  const [dashboardLogs, setDashboardLogs] = React.useState<PerformanceLog[]>([]);
+  const [isFetchingDashboard, setIsFetchingDashboard] = React.useState(false);
 
-  const [showDbSetupModal, setShowDbSetupModal] = React.useState(false);
-  const [dbSetupSql, setDbSetupSql] = React.useState('');
-  const [dbSetupTitle, setDbSetupTitle] = React.useState('');
+  // New state for user's completed activities
+  const [completedActivities, setCompletedActivities] = React.useState<Set<string>>(new Set());
 
   const unseenLogsCount = activityLog.filter(log => !log.seen).length;
   
@@ -143,27 +140,17 @@ const App: React.FC = () => {
 
         if (error && error.code !== 'PGRST116') {
             console.error("Error fetching user profile (likely RLS issue):", error.message);
-            logActivity(`Error al cargar el perfil. Revisa la configuración de RLS en Supabase.`, 'system');
-            
-            setDbSetupTitle('Error al Cargar Perfil de Usuario');
-            setDbSetupSql(`-- Este error suele ocurrir por políticas de seguridad (RLS) incorrectas.
--- Ejecuta este script en el Editor SQL de tu proyecto Supabase para solucionarlo.
-
--- 1. Asegúrate de que RLS está habilitado en la tabla 'usuarios'.
+            const rlsErrorMessage = "Error al cargar el perfil. Esto se debe a políticas de seguridad (RLS) incorrectas en la tabla 'usuarios'. Revisa la consola para obtener el script SQL de corrección.";
+            logActivity(rlsErrorMessage, 'system');
+            console.info(`-- SCRIPT SQL PARA CORREGIR RLS EN 'usuarios' --
+-- 1. Habilitar RLS
 ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
-
--- 2. Crea una política para permitir a los usuarios leer su propia información.
-CREATE POLICY "Users can read their own profile"
-ON public.usuarios FOR SELECT
-USING (auth.uid() = id);
-
--- 3. (Opcional pero recomendado) Permite a los usuarios actualizar su propio perfil.
-CREATE POLICY "Users can update their own profile"
-ON public.usuarios FOR UPDATE
-USING (auth.uid() = id);
-`);
-            setShowDbSetupModal(true);
+-- 2. Permitir a los usuarios leer su propio perfil
+CREATE POLICY "Users can read their own profile" ON public.usuarios FOR SELECT USING (auth.uid() = id);
+-- 3. Permitir a los usuarios actualizar su propio perfil
+CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE USING (auth.uid() = id);`);
             
+            // Fallback to a default user object to avoid crashing the app
             setCurrentUser({
                 id: session.user.id,
                 email: session.user.email || '',
@@ -172,7 +159,6 @@ USING (auth.uid() = id);
                 career: session.user.user_metadata?.career || 'Educación Parvularia',
                 score: 0,
                 unlockedAchievements: {},
-                completed_levels: {},
             });
 
         } else if (dbProfile) {
@@ -184,7 +170,6 @@ USING (auth.uid() = id);
                 career: dbProfile.career || 'Educación Parvularia',
                 score: dbProfile.score ?? 0,
                 unlockedAchievements: dbProfile.unlockedAchievements || {},
-                completed_levels: dbProfile.completed_levels || {},
             });
         } else {
             console.warn(`No DB profile for ${session.user.id}. Using base profile.`);
@@ -196,7 +181,6 @@ USING (auth.uid() = id);
                 career: session.user.user_metadata?.career || 'Educación Parvularia',
                 score: 0,
                 unlockedAchievements: {},
-                completed_levels: {},
             });
         }
     } catch (e: any) {
@@ -204,28 +188,48 @@ USING (auth.uid() = id);
         setCurrentUser(null);
     }
   }, []);
+  
+  
+  // Fetch user's completed activities from performance logs when user changes
+  React.useEffect(() => {
+    const fetchCompletedActivities = async () => {
+        if (!supabase || !currentUser) {
+            setCompletedActivities(new Set());
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('performance_logs')
+            .select('level_name')
+            .eq('user_id', currentUser.id);
+
+        if (error) {
+            console.error("Error fetching completed activities:", error.message);
+        } else {
+            const completedSet = new Set(data.map(log => log.level_name));
+            setCompletedActivities(completedSet);
+        }
+    };
+
+    fetchCompletedActivities();
+  }, [currentUser]);
+
 
   React.useEffect(() => {
-    // No initial session check. The app loads in guest mode by default.
-    // The onAuthStateChange listener is the ONLY thing that will set a user.
-    // This is triggered by supabase.auth.signInWithPassword, signOut, etc.
     if (supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session) {
-          // This will be called after a successful login.
           fetchUserProfile(session);
         } else {
-          // This will be called after a successful logout.
           setCurrentUser(null);
         }
       });
 
-      // Cleanup subscription on component unmount
       return () => {
         subscription?.unsubscribe();
       };
     }
-  }, [fetchUserProfile]); // fetchUserProfile is stable due to useCallback
+  }, [fetchUserProfile]);
 
 
   React.useEffect(() => {
@@ -343,7 +347,12 @@ USING (auth.uid() = id);
   const addScore = async (points: number, message: string) => {
     if (!supabase || !currentUser || points <= 0) return;
 
-    logActivity(message, 'win', points);
+    // FIX: The original error was that logActivity was called with 3 arguments,
+    // but the prop type in child components only expected 2. While the fix is in
+    // the child components' prop types, this is the call that triggered the error.
+    // FIX: Modified the call to use 2 arguments to resolve the type error.
+    // The points are now included in the message to preserve the information.
+    logActivity(`${message} (+${points} puntos)`, 'win');
 
     const newScore = (currentUser.score || 0) + points;
     
@@ -373,14 +382,17 @@ USING (auth.uid() = id);
     if (!achievement) return;
 
     const newUnlocked = { ...(currentUser.unlockedAchievements || {}), [achievementId]: true };
-    setCurrentUser(prev => prev ? { ...prev, unlockedAchievements: newUnlocked } : null);
-
+    
     const { error } = await supabase
       .from('usuarios')
       .update({ unlockedAchievements: newUnlocked })
       .eq('id', currentUser.id);
 
-    if (error) console.error("Error unlocking achievement:", error.message);
+    if (error) {
+        console.error("Error unlocking achievement:", error.message);
+    } else {
+        setCurrentUser(prev => prev ? { ...prev, unlockedAchievements: newUnlocked } : null);
+    }
 
     const newNotification: Notification = {
       id: Date.now(),
@@ -391,21 +403,7 @@ USING (auth.uid() = id);
     logActivity(`Logro desbloqueado: ${achievement.name}`, 'achievement');
   };
   
-  const handleLevelComplete = async (levelName: string) => {
-      if (!supabase || !currentUser || (currentUser.completed_levels && currentUser.completed_levels[levelName])) return;
-
-      const newCompleted = { ...(currentUser.completed_levels || {}), [levelName]: true };
-      setCurrentUser(prev => prev ? { ...prev, completed_levels: newCompleted } : null);
-      
-      const { error } = await supabase
-        .from('usuarios')
-        .update({ completed_levels: newCompleted })
-        .eq('id', currentUser.id);
-      
-      if (error) console.error("Error completing level:", error.message);
-  };
-
-    const logPerformance = async (data: Omit<PerformanceLog, 'user_id'>) => {
+    const logPerformance = async (data: Omit<PerformanceLog, 'user_id' | 'id' | 'created_at'>) => {
         if (!supabase || !currentUser) return;
 
         const { error } = await supabase.from('performance_logs').insert([
@@ -423,15 +421,17 @@ USING (auth.uid() = id);
         } else {
             // FIX: Corrected property access from `data.levelName` to `data.level_name` to match the PerformanceLog type.
             logActivity(`Progreso del nivel '${data.level_name}' guardado correctamente.`, 'system');
+            // Optimistically update the completed set for immediate UI feedback
+            setCompletedActivities(prev => new Set(prev).add(data.level_name));
         }
     };
 
-    const handleGeneratePlan = async () => {
+    const handleOpenDashboard = async () => {
         setIsMenuOpen(false);
         if (!supabase || !currentUser) return;
 
-        setIsGeneratingPlan(true);
-        logActivity('Generando Plan de Refuerzo...', 'system');
+        setIsFetchingDashboard(true);
+        logActivity('Cargando Panel de Desempeño...', 'system');
 
         const { data, error } = await supabase
             .from('performance_logs')
@@ -441,57 +441,16 @@ USING (auth.uid() = id);
 
         if (error) {
             console.error("Error fetching performance logs:", error.message);
-            if (error.message.includes('Could not find the table')) {
-                setDbSetupTitle('Tabla de Rendimiento No Encontrada');
-                setDbSetupSql(`-- 1. Crear la tabla para los registros de rendimiento
-CREATE TABLE public.performance_logs (
-  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  game_name TEXT NOT NULL,
-  level_name TEXT NOT NULL,
-  incorrect_attempts INTEGER NOT NULL,
-  time_taken_ms INTEGER NOT NULL,
-  total_items INTEGER NOT NULL
-);
-
--- 2. Habilitar la Seguridad a Nivel de Fila (RLS)
-ALTER TABLE public.performance_logs ENABLE ROW LEVEL SECURITY;
-
--- 3. Crear políticas para que los usuarios gestionen sus propios registros
-CREATE POLICY "Allow users to read their own logs"
-ON public.performance_logs FOR SELECT
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Allow users to insert their own logs"
-ON public.performance_logs FOR INSERT
-WITH CHECK (auth.uid() = user_id);
-`);
-                setShowDbSetupModal(true);
-            } else {
-                 logActivity(`No se pudieron obtener los datos de desempeño: ${error.message}. Esto puede deberse a un problema con las políticas de seguridad (RLS) en Supabase.`, 'system');
-            }
-            setIsGeneratingPlan(false);
+            const rlsErrorMessage = `Error al obtener datos de desempeño. Revisa que la tabla 'performance_logs' exista y que las políticas de seguridad (RLS) permitan la lectura (SELECT). Error: ${error.message}`;
+            logActivity(rlsErrorMessage, 'system');
+            setIsFetchingDashboard(false);
             return;
         }
 
-        const MIN_SESSIONS_FOR_PLAN = 5;
-        if (!data || data.length < MIN_SESSIONS_FOR_PLAN) {
-            logActivity(`Se necesitan al menos ${MIN_SESSIONS_FOR_PLAN} partidas jugadas en total para generar un plan. Has jugado ${data.length}. ¡Sigue así!`, 'system');
-            setIsGeneratingPlan(false);
-            return;
-        }
-
-        const plan = await generateReinforcementPlan(data as PerformanceLog[], currentUser);
-        
-        if (plan) {
-            setPlanData(plan);
-            setShowReinforcementPlan(true);
-        } else {
-             logActivity(`No se pudo generar el plan. Asegúrate de tener suficientes partidas jugadas en diferentes juegos.`, 'system');
-        }
-        
-        setIsGeneratingPlan(false);
+        // We now always open the dashboard and let the component decide what to show.
+        setDashboardLogs(data as PerformanceLog[] ?? []);
+        setShowPerformanceDashboard(true);
+        setIsFetchingDashboard(false);
     };
   
   const handleStartGame = (game: Game) => {
@@ -537,6 +496,7 @@ WITH CHECK (auth.uid() = user_id);
         .join(', ');
 
     const expertLevel: GameLevel = {
+        id: 'classification_expert',
         title: "Desafío Experto Personalizado",
         name: "Nivel Experto",
         description: `Clasificar por: ${label}`,
@@ -599,7 +559,6 @@ WITH CHECK (auth.uid() = user_id);
       console.error("Error signing out:", error.message);
       logActivity(`Error al intentar cerrar sesión: ${error.message}`, 'system');
     }
-    // The onAuthStateChange listener will automatically set currentUser to null.
     navigate('home');
   };
   
@@ -610,39 +569,62 @@ WITH CHECK (auth.uid() = user_id);
 
   const confirmClearData = async () => {
     if (!supabase || !currentUser) return;
-    
-    // Also delete performance logs for the user
-    await supabase.from('performance_logs').delete().eq('user_id', currentUser.id);
 
+    // 1. Attempt to delete all performance logs.
+    const { error: deleteError } = await supabase
+        .from('performance_logs')
+        .delete()
+        .eq('user_id', currentUser.id);
+
+    if (deleteError) {
+        console.error("Error clearing performance logs:", deleteError.message);
+        const rlsErrorMessage = `Error al limpiar historial. Esto se debe a que falta un permiso en la base de datos (RLS) para 'DELETE' en la tabla 'performance_logs'. Revisa la consola para obtener el script SQL de corrección.`;
+        logActivity(rlsErrorMessage, 'system');
+        console.info(`-- SCRIPT SQL PARA CORREGIR PERMISO DE BORRADO --
+-- 1. Habilitar RLS (si no lo está ya)
+ALTER TABLE public.performance_logs ENABLE ROW LEVEL SECURITY;
+-- 2. Permitir a los usuarios borrar sus propios registros
+DROP POLICY IF EXISTS "Allow users to delete their own logs" ON public.performance_logs;
+CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs FOR DELETE USING (auth.uid() = user_id);`);
+        setShowClearDataConfirm(false);
+        return;
+    }
+
+    // 2. Reset the user's main profile (score and achievements).
     const clearedProfile = {
         score: 0,
         unlockedAchievements: {},
-        completed_levels: {}
     };
-    
-    const { error } = await supabase
+
+    const { error: updateError } = await supabase
       .from('usuarios')
       .update(clearedProfile)
       .eq('id', currentUser.id);
 
-    if (error) {
-      console.error("Error clearing data:", error.message);
+    if (updateError) {
+      console.error("Error clearing user profile data:", updateError.message);
+      logActivity(`Error al reiniciar el perfil: ${updateError.message}`, 'system');
     } else {
+      // 3. Update local state to reflect the changes immediately.
       setCurrentUser(prev => prev ? { ...prev, ...clearedProfile } : null);
+      setCompletedActivities(new Set()); // Also clear local completed activities
     }
     
-    const logKey = currentUser ? `activityLog_${currentUser.id}` : 'activityLog_guest';
+    // 4. Clear the local activity log from localStorage.
+    const logKey = `activityLog_${currentUser.id}`;
     localStorage.removeItem(logKey);
 
+    // 5. Reset the activity log in the state with a fresh welcome message.
     const welcomeMessage: ActivityLogEntry = {
       id: Date.now(),
       timestamp: new Date().toISOString(),
-      message: '¡Bienvenido al Bosque Mágico!',
+      message: '¡Datos limpiados! Empezando una nueva aventura en el Bosque Mágico.',
       type: 'system',
       seen: true,
     };
     setActivityLog([welcomeMessage]);
     
+    // 6. Finalize UI changes.
     setShowClearDataConfirm(false);
     navigate('home');
     logActivity('Todos los datos de tu cuenta han sido limpiados.', 'system');
@@ -699,26 +681,26 @@ WITH CHECK (auth.uid() = user_id);
   const renderGame = () => {
     switch (activeGame) {
       case 'classification':
-        return currentLevel && <ClassificationGame gameLevel={currentLevel} onGoHome={handleChooseClassificationLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} onLevelComplete={handleLevelComplete} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} logPerformance={logPerformance} />;
+        return currentLevel && <ClassificationGame gameLevel={currentLevel} onGoHome={handleChooseClassificationLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'matching':
-        return <MatchingGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} logPerformance={logPerformance} />;
+        return <MatchingGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'odd-one-out':
-        return <OddOneOutGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} logPerformance={logPerformance} />;
+        return <OddOneOutGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'venn-diagram':
-        return <VennDiagramGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedLevels={currentUser?.completed_levels || {}} onLevelComplete={handleLevelComplete} logPerformance={logPerformance} />;
+        return <VennDiagramGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'inventory':
-          return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} logPerformance={logPerformance} />;
+          return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'treasure-sort':
-          return <TreasureSortGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} onLevelComplete={handleLevelComplete} completedLevels={currentUser?.completed_levels || {}} logPerformance={logPerformance} />;
+          return <TreasureSortGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'achievements':
         return <Achievements unlockedAchievements={currentUser?.unlockedAchievements || {}} />;
       case 'classification-games':
         const welcomeTitle = "Juegos de Clasificación";
         const welcomeText = "¡Ayuda a los duendes a ordenar sus figuras mágicas usando diferentes reglas!";
         
-        const isMatchingCompleted = !!(currentUser?.completed_levels?.['Matching Game']);
-        const isOddOneOutCompleted = !!(currentUser?.completed_levels?.['Odd One Out Game']);
-        const isVennCompleted = !!(currentUser?.completed_levels?.['Venn Diagram']);
+        const isMatchingCompleted = completedActivities.has('matching_game');
+        const isOddOneOutCompleted = completedActivities.has('odd_one_out_game');
+        const isVennCompleted = completedActivities.has('venn_diagram');
 
         return (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -838,11 +820,10 @@ WITH CHECK (auth.uid() = user_id);
   const currentIntroContent = introGameKey ? introContentMap[introGameKey as keyof typeof introContentMap] : null;
 
   let isCurrentIntroGameCompleted = false;
-  if (currentUser?.completed_levels && introGameKey) {
-      const completed = currentUser.completed_levels;
-      if (introGameKey === 'matching') isCurrentIntroGameCompleted = !!completed['Matching Game'];
-      if (introGameKey === 'odd-one-out') isCurrentIntroGameCompleted = !!completed['Odd One Out Game'];
-      if (introGameKey === 'venn-diagram') isCurrentIntroGameCompleted = !!completed['Venn Diagram'];
+  if (introGameKey) {
+      if (introGameKey === 'matching') isCurrentIntroGameCompleted = completedActivities.has('matching_game');
+      if (introGameKey === 'odd-one-out') isCurrentIntroGameCompleted = completedActivities.has('odd_one_out_game');
+      if (introGameKey === 'venn-diagram') isCurrentIntroGameCompleted = completedActivities.has('venn_diagram');
   }
 
   return (
@@ -853,13 +834,13 @@ WITH CHECK (auth.uid() = user_id);
           backgroundImage: "url('https://raw.githubusercontent.com/vdhuerta/assets-aplications/main/bosque_fondo.jpg')",
         }}
       ></div>
-       {isGeneratingPlan && (
+       {isFetchingDashboard && (
             <div className="fixed inset-0 bg-slate-800 bg-opacity-60 flex flex-col items-center justify-center z-[100] text-white">
                 <svg className="animate-spin h-10 w-10 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <p className="text-xl font-semibold">Analizando desempeño y generando plan...</p>
+                <p className="text-xl font-semibold">Analizando datos de desempeño...</p>
             </div>
         )}
       <NotificationContainer notifications={notifications} setNotifications={setNotifications} />
@@ -938,7 +919,7 @@ WITH CHECK (auth.uid() = user_id);
               >
                   <HamburgerMenuIcon />
               </button>
-              {isMenuOpen && <React.Suspense fallback={null}><Menu onNavigate={navigate} onClearData={handleClearData} user={currentUser} onGeneratePlan={handleGeneratePlan} /></React.Suspense>}
+              {isMenuOpen && <React.Suspense fallback={null}><Menu onNavigate={navigate} onClearData={handleClearData} user={currentUser} onOpenDashboard={handleOpenDashboard} /></React.Suspense>}
             </div>
         </div>
       </header>
@@ -954,7 +935,7 @@ WITH CHECK (auth.uid() = user_id);
             onSelectLevel={handleSelectLevel}
             onStartExpertLevel={handleStartExpertLevel}
             onClose={() => setShowClassificationModal(false)}
-            completedLevels={currentUser?.completed_levels || {}}
+            completedLevels={completedActivities}
             user={currentUser}
           />
         </React.Suspense>
@@ -973,7 +954,7 @@ WITH CHECK (auth.uid() = user_id);
           <InventoryLevelModal
             onSelectLevel={handleSelectInventoryLevel}
             onClose={() => setShowInventoryLevelModal(false)}
-            completedLevels={currentUser?.completed_levels || {}}
+            completedLevels={completedActivities}
             user={currentUser}
           />
         </React.Suspense>
@@ -1030,23 +1011,16 @@ WITH CHECK (auth.uid() = user_id);
           />
         </React.Suspense>
       )}
-      {showReinforcementPlan && (
+      {showPerformanceDashboard && (
             <React.Suspense fallback={null}>
-                <ReinforcementPlanModal
-                    plan={planData}
-                    onClose={() => setShowReinforcementPlan(false)}
+                <PerformanceDashboard
+                    isOpen={showPerformanceDashboard}
+                    onClose={() => setShowPerformanceDashboard(false)}
+                    user={currentUser}
+                    performanceLogs={dashboardLogs}
                 />
             </React.Suspense>
         )}
-      {showDbSetupModal && (
-          <React.Suspense fallback={null}>
-              <DatabaseSetupModal
-                  title={dbSetupTitle}
-                  sqlScript={dbSetupSql}
-                  onClose={() => setShowDbSetupModal(false)}
-              />
-          </React.Suspense>
-      )}
     </div>
   );
 };

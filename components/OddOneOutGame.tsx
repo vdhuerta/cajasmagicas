@@ -5,6 +5,7 @@ import DienesBlock from './DienesBlock';
 import { ElfIcon } from './icons/ElfIcon';
 import { speakText } from '../utils/tts';
 import { AudioIcon } from './icons/AudioIcon';
+import HoverHelper from './HoverHelper';
 
 const TOTAL_ROUNDS = 5;
 
@@ -39,14 +40,13 @@ const generateRuleDescription = (rule: ClassificationRule): string => {
 interface OddOneOutGameProps {
   onGoHome: () => void;
   onUnlockAchievement: (id: string) => void;
-  logActivity: (message: string, type: ActivityLogType) => void;
+  logActivity: (message: string, type: ActivityLogType, pointsEarned?: number) => void;
   addScore: (points: number, message: string) => void;
-  onLevelComplete: (levelName: string) => void;
-  completedLevels: Record<string, boolean>;
+  completedActivities: Set<string>;
   logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels, logPerformance }) => {
+const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, completedActivities, logPerformance }) => {
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
   const [incorrectAttempts, setIncorrectAttempts] = useState(0);
@@ -90,13 +90,13 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
     
     logPerformance({
         game_name: 'OddOneOut',
-        level_name: 'El Duende Despistado',
+        level_name: 'odd_one_out_game',
         incorrect_attempts: finalIncorrect,
         time_taken_ms: timeTakenMs,
         total_items: TOTAL_ROUNDS,
     });
     
-    if (!completedLevels['Odd One Out Game']) {
+    if (!completedActivities.has('odd_one_out_game')) {
       const points = finalScore * 100 - (finalIncorrect * 10);
       setPointsAwarded(points);
       if (points > 0) {
@@ -107,7 +107,6 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
         onUnlockAchievement('ODD_ONE_OUT_PERFECT');
       }
     }
-    onLevelComplete('Odd One Out Game');
   };
 
 
@@ -206,6 +205,7 @@ const OddOneOutGame: React.FC<OddOneOutGameProps> = ({ onGoHome, onUnlockAchieve
             </div>
           ))}
         </div>
+        <HoverHelper text="Pasa el cursor sobre una figura para ver sus detalles." />
         
         <div className="flex justify-between items-center mt-4 px-2">
             <p className="text-lg font-bold text-slate-600">Puntuación: {score}</p>

@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { CloseIcon } from './icons/CloseIcon';
 import { CareerOption, ActivityLogType } from '../types';
@@ -8,7 +7,7 @@ import { supabase } from '../services/supabase';
 
 interface RegistrationModalProps {
   onClose: () => void;
-  logActivity: (message: string, type: ActivityLogType) => void;
+  logActivity: (message: string, type: ActivityLogType, pointsEarned?: number) => void;
   initialView: 'login' | 'register';
 }
 
@@ -99,9 +98,31 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
                 throw signUpError;
             }
             
-            // Maneja el caso en que signUp devuelve un usuario que ya existe sin lanzar un error explícito.
             if (data.user && data.user.identities && data.user.identities.length === 0) {
                 throw new Error('User already registered');
+            }
+
+            // After successful sign-up in auth, create the user profile in the public table.
+            if (data.user) {
+                const { error: insertError } = await supabase
+                    .from('usuarios')
+                    .insert({
+                        id: data.user.id,
+                        email: data.user.email,
+                        firstName: firstName.trim(),
+                        lastName: lastName.trim(),
+                        career: career,
+                        score: 0,
+                        unlockedAchievements: {},
+                    });
+
+                if (insertError) {
+                    console.error("Error creating user profile in public.usuarios:", insertError);
+                    // This error is critical, as it leaves the user in an inconsistent state.
+                    throw new Error("No se pudo crear el perfil de usuario. Por favor, intenta iniciar sesión o contacta a soporte.");
+                }
+            } else {
+                 throw new Error("No se pudo obtener la información del usuario después del registro.");
             }
 
             logActivity(`Nueva cuenta creada para ${firstName}. ¡Bienvenido!`, 'system');

@@ -4,6 +4,7 @@ import { ALL_DIENES_BLOCKS } from '../constants';
 import GameCard from './GameCard';
 import { speakText } from '../utils/tts';
 import { AudioIcon } from './icons/AudioIcon';
+import HoverHelper from './HoverHelper';
 
 const PAIRS_COUNT = 8;
 
@@ -19,14 +20,13 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 interface MatchingGameProps {
     onGoHome: () => void;
     onUnlockAchievement: (id: string) => void;
-    logActivity: (message: string, type: ActivityLogType) => void;
+    logActivity: (message: string, type: ActivityLogType, pointsEarned?: number) => void;
     addScore: (points: number, message: string) => void;
-    onLevelComplete: (levelName: string) => void;
-    completedLevels: Record<string, boolean>;
+    completedActivities: Set<string>;
     logPerformance: (data: { game_name: string; level_name: string; incorrect_attempts: number; time_taken_ms: number; total_items: number }) => void;
 }
 
-const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, onLevelComplete, completedLevels, logPerformance }) => {
+const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchievement, logActivity, addScore, completedActivities, logPerformance }) => {
   const [cards, setCards] = useState<DienesBlockType[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [matchedPairs, setMatchedPairs] = useState<string[]>([]);
@@ -64,13 +64,13 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
           
           logPerformance({
               game_name: 'Matching',
-              level_name: 'Juego de Parejas',
+              level_name: 'matching_game',
               incorrect_attempts: incorrectAttempts,
               time_taken_ms: timeTakenMs,
               total_items: PAIRS_COUNT * 2,
           });
 
-          if (!completedLevels['Matching Game']) {
+          if (!completedActivities.has('matching_game')) {
             const points = Math.max(100, 1000 - Math.floor(elapsedSeconds * 10) - (incorrectAttempts * 5));
             setPointsAwarded(points);
             addScore(points, `Juego de Parejas completado en ${elapsedSeconds.toFixed(1)}s`);
@@ -79,9 +79,8 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
 
           setIsGameComplete(true);
           logActivity('Juego de Parejas completado con éxito', 'win');
-          onLevelComplete('Matching Game');
       }
-  }, [matchedPairs, onUnlockAchievement, isGameComplete, logActivity, addScore, startTime, onLevelComplete, completedLevels, flipCount, logPerformance]);
+  }, [matchedPairs, onUnlockAchievement, isGameComplete, logActivity, addScore, startTime, completedActivities, flipCount, logPerformance]);
 
   const handleCardClick = (index: number) => {
     if (isChecking || flippedIndices.includes(index) || matchedPairs.includes(cards[index].id)) {
@@ -167,6 +166,7 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ onGoHome, onUnlockAchieveme
           />
         ))}
       </div>
+      <HoverHelper text="Pasa el cursor sobre una figura revelada para ver sus detalles." />
       <button onClick={resetGame} className="mt-6 px-6 py-2 bg-rose-400 text-white font-bold rounded-lg shadow-md hover:bg-rose-500 transition">
         Reiniciar Juego
       </button>

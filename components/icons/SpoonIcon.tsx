@@ -10,6 +10,6 @@ export const SpoonIcon: React.FC<{ className?: string }> = ({ className }) => (
       strokeOpacity="0.5"
       strokeWidth="3"
     />
-    <ellipse cx="50" cy="40" rx="20" ry="25" fill="currentColor" opacity="0.3" />
+    <ellipse cx="50" cy="40" rx="20" ry="25" fill="currentColor" opacity="0.5" />
   </svg>
 );

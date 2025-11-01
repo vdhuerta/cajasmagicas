@@ -5,9 +5,128 @@ export const COLORS = [Color.Red, Color.Blue, Color.Yellow];
 export const SIZES = [Size.Small, Size.Large];
 export const THICKNESSES = [Thickness.Thick, Thickness.Thin];
 
-// Total de actividades que se pueden completar en la aplicación para calcular el progreso.
-// 5 (Clasificación) + 1 (Parejas) + 1 (Impostor) + 1 (Venn) + 3 (Inventario) + 1 (Tesoros) = 12
-export const TOTAL_TRACKABLE_ACTIVITIES = 12;
+// BASE DE CONOCIMIENTO: Define la lógica pedagógica, mapea juegos a habilidades y contiene las reglas para el análisis de desempeño.
+// Esta es la "DIRECTIVA_CLASIFICACION" que sirve como fuente de verdad para el panel.
+export const PEDAGOGICAL_KNOWLEDGE_BASE: Record<string, {
+    description: string;
+    games: string[];
+    feedbackRules: {
+        strength: { message: string; recommendation: string; };
+        consolidating: { message: string; recommendation: string; };
+        opportunity: { message: string; recommendation: string; };
+    };
+}> = {
+    'Clasificación': {
+        description: 'Habilidad para agrupar objetos según atributos comunes como color, forma o tamaño.',
+        games: ['Classification', 'VennDiagram', 'TreasureSort'],
+        feedbackRules: {
+            strength: {
+                message: "¡Excelente dominio de la clasificación! Agrupa objetos con gran precisión y consistencia.",
+                recommendation: "Proponer desafíos con múltiples criterios (ej. 'círculos rojos y pequeños')."
+            },
+            consolidating: {
+                message: "Muestra una buena comprensión de la clasificación, aunque a veces duda con reglas complejas.",
+                recommendation: "Practicar la clasificación con dos criterios (ej. 'cuadrados azules') para afianzar la habilidad."
+            },
+            opportunity: {
+                message: "Se observa un área de oportunidad en la clasificación.",
+                recommendation: "Reforzar la identificación de atributos como color y forma con objetos cotidianos."
+            }
+        }
+    },
+    'Memoria y Atención': {
+        description: 'Capacidad para retener y recordar información visual y mantener la concentración.',
+        games: ['Matching'],
+        feedbackRules: {
+            strength: {
+                message: "¡Excelente dominio de la memoria! El estudiante muestra una gran capacidad de concentración.",
+                recommendation: "Aumentar la cantidad de pares en juegos de memoria para un mayor desafío."
+            },
+            consolidating: {
+                message: "Tiene una memoria funcional, recordando la mayoría de las parejas con algunos intentos.",
+                recommendation: "Mantener el número de pares y animar a verbalizar la estrategia ('Aquí vi un círculo rojo...')."
+            },
+            opportunity: {
+                message: "La memoria y atención son habilidades en desarrollo.",
+                recommendation: "Empezar con juegos de parejas con menos cartas para fortalecer la confianza."
+            }
+        }
+    },
+    'Atención y Percepción': {
+        description: 'Habilidad para identificar detalles, similitudes y diferencias entre objetos.',
+        games: ['OddOneOut'],
+        feedbackRules: {
+            strength: {
+                message: "¡Ojo de águila! Demuestra una notable capacidad para identificar detalles y diferencias.",
+                recommendation: "Introducir juegos que requieran encontrar más de un 'intruso' en un grupo grande."
+            },
+            consolidating: {
+                message: "Logra identificar al 'intruso' en la mayoría de los casos, a veces con un poco más de tiempo.",
+                recommendation: "Presentar grupos donde las diferencias son menos obvias para entrenar el ojo al detalle."
+            },
+            opportunity: {
+                message: "La percepción de diferencias es un área a reforzar.",
+                recommendation: "Jugar buscando objetos con atributos muy distintos para empezar (ej. 3 círculos y 1 cuadrado)."
+            }
+        }
+    },
+    'Conteo y Correspondencia': {
+        description: 'Habilidad para contar objetos y asociar un número a una cantidad específica.',
+        games: ['Inventory'],
+        feedbackRules: {
+            strength: {
+                message: "¡Magnífica habilidad de conteo! Asocia números con cantidades de forma precisa.",
+                recommendation: "Proponer desafíos que impliquen contar y luego realizar una acción (ej. 'trae 5 cucharas')."
+            },
+            consolidating: {
+                message: "El conteo es generalmente correcto, con pequeños errores ocasionales en cantidades mayores.",
+                recommendation: "Introducir juegos que impliquen contar y luego comparar cantidades ('¿dónde hay más?')."
+            },
+            opportunity: {
+                message: "El conteo y la correspondencia uno a uno son áreas para practicar.",
+                recommendation: "Contar objetos cotidianos lentamente y en voz alta, señalando cada uno."
+            }
+        }
+    }
+};
+
+// FIX: Export GAME_SKILL_MAP to be used across the application, resolving import errors.
+// Deriva el mapa de juego a habilidad para un acceso rápido.
+export const GAME_SKILL_MAP: Record<string, string> = Object.entries(PEDAGOGICAL_KNOWLEDGE_BASE)
+    .reduce((acc, [skill, data]) => {
+        data.games.forEach(game => {
+            acc[game] = skill;
+        });
+        return acc;
+    }, {} as Record<string, string>);
+
+
+// Traduce los nombres internos de los juegos a español para la UI.
+export const GAME_NAME_TRANSLATIONS: Record<string, string> = {
+    'Classification': 'Clasificación de Bloques',
+    'Matching': 'Juego de Parejas',
+    'OddOneOut': 'El Duende Despistado',
+    'VennDiagram': 'El Cruce Mágico',
+    'Inventory': 'El Inventario del Duende',
+    'TreasureSort': 'El Baúl de los Tesoros',
+};
+
+// Traduce los IDs de los niveles a español para la UI.
+export const LEVEL_NAME_TRANSLATIONS: Record<string, string> = {
+    'classification_1': 'Nivel 1: Colores',
+    'classification_2': 'Nivel 2: Formas',
+    'classification_3': 'Nivel 3: Tamaños',
+    'classification_4': 'Nivel 4: Múltiples propiedades',
+    'classification_expert': 'Nivel Experto Personalizado',
+    'matching_game': 'Partida Única',
+    'odd_one_out_game': 'Partida Única',
+    'venn_diagram': 'Partida Única',
+    'inventory_basic': 'Nivel Básico',
+    'inventory_medium': 'Nivel Medio',
+    'inventory_expert': 'Nivel Experto',
+    'treasure_sort_game': 'Partida Única',
+};
+
 
 export const ALL_DIENES_BLOCKS: DienesBlockType[] = [];
 let idCounter = 0;
@@ -58,6 +177,7 @@ export const ALL_TREASURE_OBJECTS: TreasureObject[] = [
 
 export const GAME_LEVELS: GameLevel[] = [
     {
+        id: 'classification_1',
         title: "¡Vamos a ordenar por COLOR!",
         name: "Nivel 1: Colores",
         description: "Clasifica por color: rojo, azul y amarillo.",
@@ -68,6 +188,7 @@ export const GAME_LEVELS: GameLevel[] = [
         ]
     },
     {
+        id: 'classification_2',
         title: "¡Ahora, a ordenar por FORMA!",
         name: "Nivel 2: Formas",
         description: "Clasifica por forma: círculo, cuadrado y más.",
@@ -79,6 +200,7 @@ export const GAME_LEVELS: GameLevel[] = [
         ]
     },
     {
+        id: 'classification_3',
         title: "Un desafío: ¡encuentra las figuras PEQUEÑAS!",
         name: "Nivel 3: Tamaños",
         description: "Clasifica por tamaño: grande y pequeño.",
@@ -88,6 +210,7 @@ export const GAME_LEVELS: GameLevel[] = [
         ]
     },
     {
+        id: 'classification_4',
         title: "Súper desafío: ¡ordena los CUADRADOS AZULES!",
         name: "Nivel 4: Múltiples propiedades",
         description: "Clasifica por color y forma.",
@@ -97,6 +220,7 @@ export const GAME_LEVELS: GameLevel[] = [
         ]
     },
     {
+        id: 'classification_expert',
         title: "Modo Experto",
         name: "Nivel Experto",
         description: "Elige una o más propiedades para crear tu propio desafío de clasificación.",
@@ -144,7 +268,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
     { id: 'VENN_DIAGRAM_WIN', name: 'Explorador de Pozas', description: 'Completa el juego El Cruce Mágico.' },
     { id: 'INVENTORY_BASIC_WIN', name: 'Ayudante de Duende', description: 'Completa el Nivel Básico del Inventario.' },
     { id: 'INVENTORY_MEDIUM_WIN', name: 'Artesano Habilidoso', description: 'Completa el Nivel Medio del Inventario.' },
-    { id: 'INVENTORY_EXPERT_WIN', name: 'Maestro Inventor', description: 'Completa el Nivel Experto del Inventario.' },
+    { id: 'INVENTORY_EXPERT_WIN', 'name': 'Maestro Inventor', description: 'Completa el Nivel Experto del Inventario.' },
     { id: 'TREASURE_SORT_WIN', name: 'Coleccionista de Tesoros', description: 'Completa una ronda en El Baúl de los Tesoros.' },
     { id: 'GEMINI_NAME', name: '¡Poder Mágico!', description: 'Usa la magia de la IA para nombrar una caja.' },
 ];
