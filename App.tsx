@@ -2,6 +2,7 @@
 import React from 'react';
 import { speakText } from './utils/tts';
 import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType, PerformanceLog } from './types';
+// FIX: Corrected typo from ALL_ACHIEVEVENTS to ALL_ACHIEVEMENTS.
 import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS } from './constants';
 import { HamburgerMenuIcon } from './components/icons/HamburgerMenuIcon';
 import NotificationContainer from './components/NotificationContainer';
@@ -19,6 +20,7 @@ import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
 import { TreasureChestIcon } from './components/icons/TreasureChestIcon';
 import { supabase } from './services/supabase';
 import { Session } from '@supabase/supabase-js';
+import { CogIcon } from './components/icons/CogIcon';
 
 // Lazy load components for better performance
 // FIX: Replaced invalid alias 'a' with 'React'. This fix is applied to all React hooks and components below.
@@ -41,6 +43,7 @@ const AddToHomeScreenModal = React.lazy(() => import('./components/AddToHomeScre
 const Ranking = React.lazy(() => import('./components/Ranking'));
 const GameIntroModal = React.lazy(() => import('./components/GameIntroModal'));
 const PerformanceDashboard = React.lazy(() => import('./components/PerformanceDashboard'));
+const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 
 
 type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort';
@@ -68,6 +71,7 @@ const App: React.FC = () => {
   const [showClearDataConfirm, setShowClearDataConfirm] = React.useState(false);
   const [showAddToHomeScreenModal, setShowAddToHomeScreenModal] = React.useState(false);
   const [showRanking, setShowRanking] = React.useState(false);
+  const [showAdminPanel, setShowAdminPanel] = React.useState(false);
 
   const [showTeachersGuide, setShowTeachersGuide] = React.useState(false);
   const [currentLevel, setCurrentLevel] = React.useState<GameLevel | null>(null);
@@ -566,7 +570,7 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
     setIsMenuOpen(false);
     setShowClearDataConfirm(true);
   };
-
+  
   const confirmClearData = async () => {
     if (!supabase || !currentUser) return;
 
@@ -850,6 +854,7 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
               onClick={() => navigate('home')}
               className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
               aria-label="Ir a la página de inicio"
+              title="Ir a la página de inicio"
             >
               <HomeIcon />
             </button>
@@ -868,10 +873,19 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
                     <span>Modo Local</span>
                 </div>
             )}
+             <button
+              onClick={() => setShowAdminPanel(true)}
+              className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
+              aria-label="Panel de Administrador"
+              title="Panel de Administrador"
+            >
+              <CogIcon />
+            </button>
             <button
               onClick={() => setShowTeachersGuide(true)}
               className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
               aria-label="Guía para Profesores"
+              title="Guía para Profesores"
             >
               <BookOpenIcon />
             </button>
@@ -879,6 +893,7 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
               onClick={() => setShowAddToHomeScreenModal(true)}
               className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
               aria-label="Instalar en tu dispositivo"
+              title="Instalar en tu dispositivo"
             >
               <InstallIcon />
             </button>
@@ -886,6 +901,7 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
               onClick={handleOpenLog}
               className="relative p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
               aria-label="Registro de actividad"
+              title="Registro de actividad"
             >
               <BellIcon />
               {unseenLogsCount > 0 && (
@@ -899,6 +915,7 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
                     onClick={() => setShowLogoutConfirm(true)}
                     className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-rose-100 transition"
                     aria-label="Cerrar sesión"
+                    title="Cerrar sesión"
                 >
                     <LogoutIcon />
                 </button>
@@ -907,6 +924,7 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
                     onClick={() => handleOpenAuthModal('login')}
                     className="p-3 bg-white text-slate-700 rounded-full shadow-sm hover:bg-sky-100 transition"
                     aria-label="Iniciar sesión o crear cuenta"
+                    title="Iniciar sesión o crear cuenta"
                 >
                     <UserIcon />
                 </button>
@@ -916,6 +934,7 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
                   onClick={() => setIsMenuOpen(prev => !prev)}
                   className="p-3 bg-white rounded-full shadow-md hover:bg-sky-100 transition"
                   aria-label="Abrir menú"
+                  title="Abrir menú"
               >
                   <HamburgerMenuIcon />
               </button>
@@ -1021,6 +1040,11 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
                 />
             </React.Suspense>
         )}
+       {showAdminPanel && (
+          <React.Suspense fallback={null}>
+              <AdminPanel onClose={() => setShowAdminPanel(false)} />
+          </React.Suspense>
+       )}
     </div>
   );
 };

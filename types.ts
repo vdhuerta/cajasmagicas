@@ -145,16 +145,3 @@ export interface PerformanceLog {
   time_taken_ms: number;
   total_items?: number;
 }
-
-// FIX: Added missing type definitions for SkillsBulletin and BulletinSection.
-export interface BulletinSection {
-  skill: string;
-  comment: string;
-  recommendation: string;
-}
-
-export interface SkillsBulletin {
-  summary: string;
-  strengths: BulletinSection[];
-  opportunities: BulletinSection[];
-}
