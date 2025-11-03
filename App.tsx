@@ -1,8 +1,8 @@
 // FIX: Corrected the React import. The alias 'a' was invalid.
 import React from 'react';
 import { speakText } from './utils/tts';
-import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType, PerformanceLog } from './types';
-// FIX: Corrected typo from ALL_ACHIEVEVENTS to ALL_ACHIEVEMENTS.
+import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType, PerformanceLog, SeriationChallengeType } from './types';
+// FIX: Corrected typo from ALL_ACHIEVEMENTS to ALL_ACHIEVEMENTS.
 import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS } from './constants';
 import { HamburgerMenuIcon } from './components/icons/HamburgerMenuIcon';
 import NotificationContainer from './components/NotificationContainer';
@@ -22,6 +22,8 @@ import { supabase } from './services/supabase';
 import { Session } from '@supabase/supabase-js';
 import { CogIcon } from './components/icons/CogIcon';
 import { CuisenaireIcon } from './components/icons/CuisenaireIcon';
+import { StairsIcon } from './components/icons/StairsIcon';
+import { SnakeIcon } from './components/icons/SnakeIcon';
 
 // Lazy load components for better performance
 // FIX: Replaced invalid alias 'a' with 'React'. This fix is applied to all React hooks and components below.
@@ -32,6 +34,8 @@ const VennDiagramGame = React.lazy(() => import('./components/VennDiagramGame'))
 const InventoryGame = React.lazy(() => import('./components/InventoryGame'));
 const TreasureSortGame = React.lazy(() => import('./components/TreasureSortGame'));
 const SeriationGame = React.lazy(() => import('./components/SeriationGame'));
+const HiddenStepGame = React.lazy(() => import('./components/HiddenStepGame'));
+const ColorSnakeGame = React.lazy(() => import('./components/ColorSnakeGame'));
 const Achievements = React.lazy(() => import('./components/Achievements'));
 const Menu = React.lazy(() => import('./components/Menu'));
 const ClassificationLevelModal = React.lazy(() => import('./components/ClassificationLevelModal'));
@@ -48,7 +52,7 @@ const PerformanceDashboard = React.lazy(() => import('./components/PerformanceDa
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 
 
-type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort' | 'seriation-games' | 'seriation';
+type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort' | 'seriation-games' | 'seriation' | 'hidden-step' | 'color-snake';
 
 const GameLoading: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center">
@@ -65,7 +69,7 @@ const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
 const App: React.FC = () => {
   const [activeGame, setActiveGame] = React.useState<Game>('home');
   const [showClassificationModal, setShowClassificationModal] = React.useState(false);
-  const [introGameKey, setIntroGameKey] = React.useState<Game | null>(null);
+  const [introGameKey, setIntroGameKey] = React.useState<string | null>(null);
 
   const [showInventoryLevelModal, setShowInventoryLevelModal] = React.useState(false);
   const [showRegistrationModal, setShowRegistrationModal] = React.useState(false);
@@ -78,6 +82,7 @@ const App: React.FC = () => {
   const [showTeachersGuide, setShowTeachersGuide] = React.useState(false);
   const [currentLevel, setCurrentLevel] = React.useState<GameLevel | null>(null);
   const [currentInventoryLevel, setCurrentInventoryLevel] = React.useState<InventoryGameDifficulty | null>(null);
+  const [activeSeriationChallenge, setActiveSeriationChallenge] = React.useState<SeriationChallengeType | null>(null);
 
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isLogOpen, setIsLogOpen] = React.useState(false);
@@ -462,16 +467,37 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
   const handleStartGame = (game: Game) => {
     setIntroGameKey(null);
     setActiveGame(game);
-    const gameNameMap = {
+    const gameNameMap: Record<Game, string> = {
       'matching': 'Juego de Parejas',
       'odd-one-out': 'El Duende Despistado',
       'venn-diagram': 'El Cruce Mágico',
       'treasure-sort': 'El Baúl de los Tesoros',
-      'seriation': 'Continúa el Patrón',
+      'hidden-step': 'El Peldaño Escondido',
+      'color-snake': 'La Serpiente de Colores',
+      'home': 'Inicio',
+      'classification-games': 'Juegos de Clasificación',
+      'classification': 'Clasificación',
+      'achievements': 'Logros',
+      'inventory': 'Inventario',
+      'seriation-games': 'Juegos de Seriación',
+      'seriation': 'Seriación',
     };
-    if (gameNameMap[game as keyof typeof gameNameMap]) {
-      logActivity(`Iniciado ${gameNameMap[game as keyof typeof gameNameMap]}`, 'game');
+    if (gameNameMap[game]) {
+      logActivity(`Iniciado ${gameNameMap[game]}`, 'game');
     }
+  };
+
+   const handleStartSeriationGame = (challengeType: SeriationChallengeType) => {
+      setIntroGameKey(null);
+      setActiveSeriationChallenge(challengeType);
+      setActiveGame('seriation');
+      const gameNameMap: Record<SeriationChallengeType, string> = {
+          'ascending': 'La Escalera Creciente',
+          'descending': 'La Escalera Inversa',
+          'abc-pattern': 'El Muro Tricolor',
+          'growth-pattern': 'Saltos de Gigante',
+      };
+      logActivity(`Iniciado ${gameNameMap[challengeType]}`, 'game');
   };
 
   const handleStartInventory = () => {
@@ -683,14 +709,59 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
       theme: { text: 'text-stone-800', buttonBg: 'bg-stone-500', buttonHoverBg: 'hover:bg-stone-600', iconText: 'text-stone-500', bg: 'bg-stone-50', audioHover: 'hover:bg-stone-100', audioText: 'text-stone-700' },
       onStart: () => handleStartGame('treasure-sort'),
     },
-    'seriation': {
-      title: "Continúa el Patrón",
-      story: "Los duendes están decorando el bosque con secuencias de colores que se repiten. ¡Han empezado un patrón, pero necesitan tu ayuda para continuarlo!",
-      instructions: "Observa la secuencia de regletas. Encuentra el patrón de tres que se repite (ABC, ABC...). Luego, arrastra las dos regletas que siguen en la secuencia a los espacios vacíos. ¡Presiona 'Verificar Patrón' cuando termines!",
+    'seriation_ascending': {
+      title: "La Escalera Creciente",
+      story: "¡Vamos a construir una escalera para que los duendes puedan subir a los árboles! Tenemos que ordenar las regletas de la más pequeña a la más grande.",
+      instructions: "Observa la secuencia de regletas. Continúa la escalera arrastrando las dos siguientes regletas en orden de tamaño a los espacios vacíos. ¡Construyamos hacia arriba!",
       buttonText: "¡A construir!",
-      Icon: CuisenaireIcon,
+      Icon: StairsIcon,
       theme: { text: 'text-sky-800', buttonBg: 'bg-sky-500', buttonHoverBg: 'hover:bg-sky-600', iconText: 'text-sky-500', bg: 'bg-sky-50', audioHover: 'hover:bg-sky-100', audioText: 'text-sky-700' },
-      onStart: () => handleStartGame('seriation'),
+      onStart: () => handleStartSeriationGame('ascending'),
+    },
+    'seriation_descending': {
+      title: "La Escalera Inversa",
+      story: "¡Ahora bajemos de los árboles! Para eso, necesitamos construir una escalera que vaya desde la regleta más grande hasta la más pequeña.",
+      instructions: "Observa la secuencia de regletas. Continúa la escalera arrastrando las dos siguientes regletas en orden de tamaño, pero esta vez ¡hacia abajo!",
+      buttonText: "¡Vamos a bajar!",
+      Icon: StairsIcon,
+      theme: { text: 'text-indigo-800', buttonBg: 'bg-indigo-500', buttonHoverBg: 'hover:bg-indigo-600', iconText: 'text-indigo-500', bg: 'bg-indigo-50', audioHover: 'hover:bg-indigo-100', audioText: 'text-indigo-700' },
+      onStart: () => handleStartSeriationGame('descending'),
+    },
+    'seriation_abc': {
+      title: "El Muro Tricolor",
+      story: "Los duendes están decorando el bosque con un muro de colores que se repiten. ¡Han empezado un patrón, pero necesitan tu ayuda para continuarlo!",
+      instructions: "Observa la secuencia de regletas. Encuentra el patrón de tres que se repite (ABC, ABC...). Luego, arrastra las dos regletas que siguen en la secuencia a los espacios vacíos.",
+      buttonText: "¡A decorar!",
+      Icon: CuisenaireIcon,
+      theme: { text: 'text-rose-800', buttonBg: 'bg-rose-500', buttonHoverBg: 'hover:bg-rose-600', iconText: 'text-rose-500', bg: 'bg-rose-50', audioHover: 'hover:bg-rose-100', audioText: 'text-rose-700' },
+      onStart: () => handleStartSeriationGame('abc-pattern'),
+    },
+    'seriation_growth': {
+      title: "Saltos de Gigante",
+      story: "¡Un gigante ha dejado sus huellas en el bosque! Sus pasos no son de uno en uno, sino que dan grandes saltos. ¿Puedes adivinar cómo salta?",
+      instructions: "Mira las regletas. No crecen de uno en uno. Descubre la regla (por ejemplo, 'de dos en dos') y arrastra las siguientes dos regletas que continúan el patrón de saltos.",
+      buttonText: "¡A saltar!",
+      Icon: CuisenaireIcon,
+      theme: { text: 'text-emerald-800', buttonBg: 'bg-emerald-500', buttonHoverBg: 'hover:bg-emerald-600', iconText: 'text-emerald-500', bg: 'bg-emerald-50', audioHover: 'hover:bg-emerald-100', audioText: 'text-emerald-700' },
+      onStart: () => handleStartSeriationGame('growth-pattern'),
+    },
+    'seriation_hidden_step': {
+      title: "El Peldaño Escondido",
+      story: "¡Oh, no! Mientras construían una escalera, los duendes se han dado cuenta de que falta un peldaño justo en el medio. ¿Puedes ayudarlos a encontrar la pieza que encaja perfectamente?",
+      instructions: "Observa con mucha atención la secuencia de la escalera. Fíjate en las piezas de antes y después del hueco para descubrir cuál falta. ¡Arrastra la regleta correcta al espacio vacío!",
+      buttonText: "¡A reparar!",
+      Icon: StairsIcon,
+      theme: { text: 'text-orange-800', buttonBg: 'bg-orange-500', buttonHoverBg: 'hover:bg-orange-600', iconText: 'text-orange-500', bg: 'bg-orange-50', audioHover: 'hover:bg-orange-100', audioText: 'text-orange-700' },
+      onStart: () => handleStartGame('hidden-step'),
+    },
+    'seriation_color_snake': {
+      title: "La Serpiente de Colores",
+      story: "Una serpiente mágica está creciendo en el bosque, ¡pero necesita tu ayuda para completar su patrón de colores! Su cuerpo sigue una secuencia especial.",
+      instructions: "Descubre el patrón de colores de la serpiente (puede ser AAB, AABB...). Luego, arrastra los siguientes dos segmentos para ayudarla a crecer. ¡Hazla tan larga como puedas!",
+      buttonText: "¡A crecer!",
+      Icon: SnakeIcon,
+      theme: { text: 'text-purple-800', buttonBg: 'bg-purple-500', buttonHoverBg: 'hover:bg-purple-600', iconText: 'text-purple-500', bg: 'bg-purple-50', audioHover: 'hover:bg-purple-100', audioText: 'text-purple-700' },
+      onStart: () => handleStartGame('color-snake'),
     },
   };
 
@@ -709,24 +780,66 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
       case 'treasure-sort':
           return <TreasureSortGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'seriation':
-        return <SeriationGame onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
+        return activeSeriationChallenge && <SeriationGame challengeType={activeSeriationChallenge} onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
+      case 'hidden-step':
+        return <HiddenStepGame onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
+      case 'color-snake':
+        return <ColorSnakeGame onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'achievements':
         return <Achievements unlockedAchievements={currentUser?.unlockedAchievements || {}} />;
       case 'seriation-games':
+        const isAscendingCompleted = completedActivities.has('seriation_ascending');
+        const isDescendingCompleted = completedActivities.has('seriation_descending');
+        const isAbcCompleted = completedActivities.has('seriation_abc-pattern');
+        const isGrowthCompleted = completedActivities.has('seriation_growth-pattern');
+        const isHiddenStepCompleted = completedActivities.has('hidden_step_game');
+        const isColorSnakeCompleted = completedActivities.has('color_snake_game');
         return (
           <div className="flex flex-col items-center justify-center h-full text-center">
              <h1 className="text-5xl font-bold text-sky-700 mb-4">Juegos de Seriación</h1>
              <p className="text-xl text-slate-600 max-w-2xl md:max-w-4xl mb-12">¡Aprende a ordenar objetos en secuencias lógicas!</p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <button
-                onClick={() => setIntroGameKey('seriation')}
-                className="relative px-8 py-4 bg-sky-400 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-sky-500"
-              >
-                <div className="flex items-center justify-center gap-3">
-                  <CuisenaireIcon className="w-7 h-7" />
-                  <span className="font-bold">Continúa el Patrón</span>
-                </div>
-                <span className="block text-sm font-normal opacity-90 mt-1">Nivel Básico</span>
+              <button onClick={() => setIntroGameKey('seriation_ascending')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isAscendingCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-sky-400 hover:bg-sky-500'}`}>
+                  {isAscendingCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                  <div className="flex items-center justify-center gap-3">
+                    <StairsIcon className="w-7 h-7" />
+                    <span className="font-bold">La Escalera Creciente</span>
+                  </div>
+              </button>
+               <button onClick={() => setIntroGameKey('seriation_descending')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isDescendingCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-indigo-400 hover:bg-indigo-500'}`}>
+                  {isDescendingCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                  <div className="flex items-center justify-center gap-3">
+                    <StairsIcon className="w-7 h-7" />
+                    <span className="font-bold">La Escalera Inversa</span>
+                  </div>
+              </button>
+               <button onClick={() => setIntroGameKey('seriation_abc')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isAbcCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-rose-400 hover:bg-rose-500'}`}>
+                  {isAbcCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                  <div className="flex items-center justify-center gap-3">
+                    <CuisenaireIcon className="w-7 h-7" />
+                    <span className="font-bold">El Muro Tricolor</span>
+                  </div>
+              </button>
+              <button onClick={() => setIntroGameKey('seriation_growth')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isGrowthCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-emerald-400 hover:bg-emerald-500'}`}>
+                  {isGrowthCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                  <div className="flex items-center justify-center gap-3">
+                    <CuisenaireIcon className="w-7 h-7" />
+                    <span className="font-bold">Saltos de Gigante</span>
+                  </div>
+              </button>
+               <button onClick={() => setIntroGameKey('seriation_hidden_step')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isHiddenStepCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-orange-400 hover:bg-orange-500'}`}>
+                  {isHiddenStepCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                  <div className="flex items-center justify-center gap-3">
+                    <StairsIcon className="w-7 h-7" />
+                    <span className="font-bold">El Peldaño Escondido</span>
+                  </div>
+              </button>
+               <button onClick={() => setIntroGameKey('seriation_color_snake')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isColorSnakeCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-purple-400 hover:bg-purple-500'}`}>
+                  {isColorSnakeCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                  <div className="flex items-center justify-center gap-3">
+                    <SnakeIcon className="w-7 h-7" />
+                    <span className="font-bold">La Serpiente de Colores</span>
+                  </div>
               </button>
             </div>
           </div>
@@ -738,6 +851,7 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
         const isMatchingCompleted = completedActivities.has('matching_game');
         const isOddOneOutCompleted = completedActivities.has('odd_one_out_game');
         const isVennCompleted = completedActivities.has('venn_diagram');
+        const isTreasureSortCompleted = completedActivities.has('treasure_sort_game');
 
         return (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -812,8 +926,13 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
               </button>
                <button
                 onClick={() => setIntroGameKey('treasure-sort')}
-                className="relative px-8 py-4 bg-stone-400 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-stone-500"
+                className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${
+                    isTreasureSortCompleted
+                    ? 'bg-slate-400 hover:bg-slate-500'
+                    : 'bg-stone-400 hover:bg-stone-500'
+                }`}
               >
+                {isTreasureSortCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
                 <div className="flex items-center justify-center gap-3">
                   <TreasureChestIcon className="w-7 h-7" />
                   <span className="font-bold">El Baúl de los Tesoros</span>
@@ -870,7 +989,7 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
        <div 
         className="absolute inset-0 bg-cover bg-center -z-10 opacity-20" 
         style={{ 
-          backgroundImage: "url('https://raw.githubusercontent.com/vdhuerta/assets-aplications/main/bosque_fondo.jpg')",
+          backgroundImage: "url('https://raw.githubusercontent.com/vdhuerta/assets-aplications/main/generated-image%20(15).jpg')",
         }}
       ></div>
        {isFetchingDashboard && (

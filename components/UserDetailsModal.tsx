@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { UserProfile, PerformanceLog } from '../types';
 import { fetchUserPerformanceLogs } from '../services/adminService';
 import { CloseIcon } from './icons/CloseIcon';
@@ -36,6 +36,38 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ user, onClose }) =>
 
     const unlockedAchievements = ALL_ACHIEVEMENTS.filter(ach => user.unlockedAchievements?.[ach.id]);
 
+    const summaryData = useMemo(() => {
+        if (!logs || logs.length === 0) {
+            return {
+                totalSessions: 0,
+                totalTimePlayed: '0m 0s',
+                totalIncorrectAttempts: 0,
+                generalProgress: 0,
+                completedActivitiesCount: 0,
+                totalActivitiesCount: Object.keys(LEVEL_NAME_TRANSLATIONS).filter(key => key !== 'classification_expert').length
+            };
+        }
+    
+        const totalTimeMs = logs.reduce((acc, log) => acc + log.time_taken_ms, 0);
+        const totalIncorrectAttempts = logs.reduce((acc, log) => acc + log.incorrect_attempts, 0);
+    
+        const completedActivitiesSet = new Set(logs.map(log => log.level_name));
+        const totalTrackableActivities = Object.keys(LEVEL_NAME_TRANSLATIONS).filter(key => key !== 'classification_expert').length;
+        const completedTrackableCount = Array.from(completedActivitiesSet).filter((activity: string) => 
+            Object.keys(LEVEL_NAME_TRANSLATIONS).includes(activity) && activity !== 'classification_expert'
+        ).length;
+        const generalProgress = totalTrackableActivities > 0 ? (completedTrackableCount / totalTrackableActivities) * 100 : 0;
+    
+        return {
+            totalSessions: logs.length,
+            totalTimePlayed: formatTime(totalTimeMs),
+            totalIncorrectAttempts,
+            generalProgress,
+            completedActivitiesCount: completedTrackableCount,
+            totalActivitiesCount: totalTrackableActivities
+        };
+    }, [logs]);
+
     return (
         <div className="fixed inset-0 bg-slate-800 bg-opacity-70 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl h-[85vh] flex flex-col animate-fade-in-up">
@@ -66,30 +98,45 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ user, onClose }) =>
                     </div>
                     
                     <div>
-                        <h4 className="font-bold text-lg text-emerald-700 mb-2">Historial de Desempeño</h4>
-                        <div className="bg-emerald-50 p-2 rounded-lg max-h-80 overflow-y-auto">
-                            {isLoadingLogs ? <p className="text-slate-500 text-sm text-center p-4">Cargando historial...</p> : (
-                                logs.length > 0 ? (
-                                    <ul className="space-y-2">
-                                        {logs.map(log => (
-                                            <li key={log.id} className="p-3 bg-white rounded-md shadow-sm">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <p className="font-bold text-slate-800">{GAME_NAME_TRANSLATIONS[log.game_name] || log.game_name}</p>
-                                                        <p className="text-sm text-slate-500">{LEVEL_NAME_TRANSLATIONS[log.level_name] || log.level_name.replace(/_/g, ' ')}</p>
-                                                    </div>
-                                                    <div className="text-right text-sm">
-                                                        <p className="font-semibold">{formatTime(log.time_taken_ms)}</p>
-                                                        <p className="text-rose-600">{log.incorrect_attempts} errores</p>
-                                                    </div>
-                                                </div>
-                                                <p className="text-xs text-slate-400 mt-1">{new Date(log.created_at!).toLocaleString('es-ES')}</p>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : <p className="text-slate-500 text-sm text-center p-4">No hay registros de desempeño.</p>
-                            )}
-                        </div>
+                        <h4 className="font-bold text-lg text-emerald-700 mb-2">Resumen de Desempeño</h4>
+                        {isLoadingLogs ? (
+                            <p className="text-slate-500 text-sm text-center p-4">Cargando resumen...</p>
+                        ) : logs.length > 0 ? (
+                            <div className="space-y-4 bg-emerald-50 p-4 rounded-lg">
+                                {/* General Summary Boxes */}
+                                <div className="grid grid-cols-3 gap-3 text-center">
+                                    <div className="bg-white p-3 rounded-md shadow-sm">
+                                        <p className="text-2xl font-bold text-sky-600">{summaryData.totalSessions}</p>
+                                        <p className="text-xs text-slate-500 font-semibold">Sesiones de Juego</p>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-md shadow-sm">
+                                        <p className="text-2xl font-bold text-sky-600">{summaryData.totalTimePlayed}</p>
+                                        <p className="text-xs text-slate-500 font-semibold">Tiempo Total</p>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-md shadow-sm">
+                                        <p className="text-2xl font-bold text-rose-600">{summaryData.totalIncorrectAttempts}</p>
+                                        <p className="text-xs text-slate-500 font-semibold">Intentos Incorrectos</p>
+                                    </div>
+                                </div>
+                                {/* General Progress Bar */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-1 text-sm font-semibold">
+                                        <span className="text-slate-700">Progreso General de Actividades</span>
+                                        <span className="text-sky-700">{summaryData.completedActivitiesCount} / {summaryData.totalActivitiesCount}</span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 rounded-full h-4">
+                                        <div 
+                                            className="bg-sky-500 h-4 rounded-full transition-all duration-500" 
+                                            style={{ width: `${summaryData.generalProgress}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-emerald-50 p-4 rounded-lg">
+                                <p className="text-slate-500 text-sm text-center">No hay registros de desempeño.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

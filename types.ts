@@ -153,3 +153,5 @@ export interface CuisenaireRodType {
   colorName: string;
   colorHex: string;
 }
+
+export type SeriationChallengeType = 'ascending' | 'descending' | 'abc-pattern' | 'growth-pattern';

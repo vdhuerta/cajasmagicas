@@ -5,20 +5,32 @@ interface RadarChartData {
     value: number; // between 0 and 1
 }
 
-interface RadarChartProps {
+interface RadarChartDataset {
     data: RadarChartData[];
+    color: string; // e.g., 'fill-sky-500/50'
+    stroke: string; // e.g., 'stroke-sky-700'
+}
+
+interface RadarChartProps {
+    datasets: RadarChartDataset[];
     size?: number;
 }
 
-const RadarChart: React.FC<RadarChartProps> = ({ data, size = 300 }) => {
-    if (!data || data.length === 0) {
+const RadarChart: React.FC<RadarChartProps> = ({ datasets, size = 300 }) => {
+    if (!datasets || datasets.length === 0 || datasets.every(d => d.data.length === 0)) {
         return <div style={{width: size, height: size}} className="flex items-center justify-center text-slate-500">No hay datos para mostrar</div>;
+    }
+
+    const allLabels = [...new Set(datasets.flatMap(d => d.data.map(item => item.label)))];
+    const numAxes = allLabels.length;
+
+    if (numAxes < 3) {
+        return <div style={{width: size, height: size}} className="flex items-center justify-center text-slate-500 text-center p-4">Se necesitan al menos 3 habilidades diferentes para mostrar el gráfico.</div>;
     }
 
     const centerX = size / 2;
     const centerY = size / 2;
-    const radius = size * 0.3; // Reducido para dar más espacio a las etiquetas
-    const numAxes = data.length;
+    const radius = size * 0.3;
     const angleSlice = (Math.PI * 2) / numAxes;
     const gridLevels = 4;
 
@@ -32,12 +44,8 @@ const RadarChart: React.FC<RadarChartProps> = ({ data, size = 300 }) => {
         return Array.from({ length: numAxes }, (__, j) => getPoint(j * angleSlice, r));
     });
 
-    const dataPoints = data.map((d, i) => getPoint(i * angleSlice, d.value * radius));
-    const dataPath = dataPoints.map(p => `${p.x},${p.y}`).join(' ');
-
     const axisPoints = Array.from({ length: numAxes }, (_, i) => getPoint(i * angleSlice, radius));
-    
-    const labelPoints = Array.from({ length: numAxes }, (_, i) => getPoint(i * angleSlice, radius * 1.35)); // Aumentado para mejor visibilidad
+    const labelPoints = Array.from({ length: numAxes }, (_, i) => getPoint(i * angleSlice, radius * 1.35));
 
     return (
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -65,21 +73,34 @@ const RadarChart: React.FC<RadarChartProps> = ({ data, size = 300 }) => {
                     />
                 ))}
 
-                {/* Data Polygon */}
-                <polygon points={dataPath} className="fill-sky-500/50 stroke-sky-700" strokeWidth="2" />
-                
-                 {/* Data Points */}
-                 {dataPoints.map((p, i) => (
-                    <circle key={i} cx={p.x} cy={p.y} r="4" className="fill-sky-700" />
-                ))}
+                {/* Data Polygons */}
+                {datasets.map((dataset, datasetIndex) => {
+                    const dataPoints = allLabels.map((label, i) => {
+                        const dataPoint = dataset.data.find(d => d.label === label);
+                        const value = dataPoint ? dataPoint.value : 0;
+                        return getPoint(i * angleSlice, value * radius);
+                    });
+                    const dataPath = dataPoints.map(p => `${p.x},${p.y}`).join(' ');
+                    const pointFill = dataset.stroke.replace('stroke-', 'fill-');
 
+                    return (
+                        <g key={datasetIndex}>
+                            <polygon points={dataPath} className={`${dataset.color} ${dataset.stroke}`} strokeWidth="2" />
+                            {dataPoints.map((p, i) => (
+                                <circle key={i} cx={p.x} cy={p.y} r="4" className={pointFill} />
+                            ))}
+                        </g>
+                    );
+                })}
+                
                 {/* Labels */}
                 {labelPoints.map((p, i) => {
                     let textAnchor = "middle";
                     if (p.x < centerX - 10) textAnchor = "end";
                     if (p.x > centerX + 10) textAnchor = "start";
                     
-                    const labelParts = data[i].label.split(' ');
+                    // FIX: Add type assertion to resolve 'split' does not exist on type 'unknown' error.
+                    const labelParts = (allLabels[i] as string).split(' ');
                     const line1 = labelParts[0];
                     const line2 = labelParts.slice(1).join(' ');
 

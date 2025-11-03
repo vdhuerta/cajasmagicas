@@ -1,18 +1,86 @@
 import React, { useState } from 'react';
 import { CloseIcon } from './icons/CloseIcon';
 import { BookOpenIcon } from './icons/BookOpenIcon';
+import { DIRECTIVA_SERIES } from '../constants';
 
 interface TeachersGuideProps {
   onClose: () => void;
 }
 
-type ActiveTab = 'clasificacion' | 'seriacion' | 'conservacion';
+type ActiveTab = 'clasificacion' | 'seriacion' | 'conservacion' | 'algebra';
 
 const TeachersGuide: React.FC<TeachersGuideProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('clasificacion');
   
   const renderContent = () => {
     switch (activeTab) {
+      case 'algebra':
+        return (
+          <div className="space-y-8">
+            {DIRECTIVA_SERIES.secciones.map((seccion, index) => (
+              <div key={index}>
+                <h3 className="text-2xl font-bold text-violet-700 mb-3">{seccion.titulo}</h3>
+                {seccion.descripcion && <p className="mb-4 text-slate-600">{seccion.descripcion}</p>}
+                
+                {seccion.apartados?.map((apartado, aIndex) => (
+                  <div key={aIndex} className="mb-4 pl-4 border-l-4 border-violet-200 py-2">
+                    <h4 className="text-xl font-bold text-slate-800 mb-2">{apartado.titulo}</h4>
+                    {apartado.resumen && <p className="italic text-slate-600 mb-2 bg-violet-50 p-3 rounded-md">{apartado.resumen}</p>}
+                    {apartado.puntos && (
+                      <ul className="list-disc list-inside space-y-1 mb-2">
+                        {apartado.puntos.map((punto, pIndex) => <li key={pIndex}>{punto}</li>)}
+                      </ul>
+                    )}
+                    {apartado.ejes && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h5 className="font-semibold text-slate-700">Ejes Actuales (2012)</h5>
+                          <ul className="list-disc list-inside text-sm space-y-1">
+                            {apartado.ejes.actuales.map((eje, eIndex) => <li key={eIndex}>{eje}</li>)}
+                          </ul>
+                        </div>
+                         <div>
+                          <h5 className="font-semibold text-slate-700">Nuevos Ejes (Propuesta 2024)</h5>
+                          <ul className="list-disc list-inside text-sm space-y-1">
+                            {apartado.ejes.nuevos.map((eje, eIndex) => <li key={eIndex}>{eje}</li>)}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+                     {apartado.tipos && Array.isArray(apartado.tipos) && typeof apartado.tipos[0] === 'string' && (
+                        <ul className="list-disc list-inside space-y-1">
+                          {(apartado.tipos as string[]).map((tipo, tIndex) => <li key={tIndex}>{tipo}</li>)}
+                        </ul>
+                     )}
+                     {apartado.tipos && Array.isArray(apartado.tipos) && typeof apartado.tipos[0] === 'object' && (
+                        <div className="space-y-3">
+                          {(apartado.tipos as any[]).map((tipo, tIndex) => (
+                            <div key={tIndex}>
+                              <h5 className="font-semibold text-slate-700">{tipo.nombre}</h5>
+                              <p className="text-sm mb-1">{tipo.descripcion}</p>
+                              {tipo.ejemplos && <p className="text-sm text-slate-500">Ejemplos: {tipo.ejemplos.join(', ')}</p>}
+                               {tipo.estructuras && (
+                                <ul className="list-[circle] list-inside ml-4 text-sm">
+                                  {Object.entries(tipo.estructuras).map(([key, value]) => <li key={key}><strong>{key}:</strong> {value as string}</li>)}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                     )}
+                  </div>
+                ))}
+                
+                {seccion.habilidades?.map((habilidad, hIndex) => (
+                  <div key={hIndex} className="mb-3">
+                     <h4 className="font-semibold text-lg text-slate-800">{habilidad.nombre}</h4>
+                     <p>{habilidad.descripcion}</p>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        );
       case 'clasificacion':
         return (
           <div className="space-y-6">
@@ -147,6 +215,17 @@ const TeachersGuide: React.FC<TeachersGuideProps> = ({ onClose }) => {
                         ${activeTab === 'clasificacion' ? 'bg-white text-rose-700 shadow-md' : 'text-slate-600 hover:bg-slate-200/70'}`}
                 >
                     Clasificación
+                </button>
+                 <button
+                    onClick={() => setActiveTab('algebra')}
+                    role="tab"
+                    id="tab-algebra"
+                    aria-controls="panel-algebra"
+                    aria-selected={activeTab === 'algebra'}
+                    className={`px-5 py-2 text-base font-bold rounded-lg transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-opacity-75
+                        ${activeTab === 'algebra' ? 'bg-white text-violet-700 shadow-md' : 'text-slate-600 hover:bg-slate-200/70'}`}
+                >
+                    Álgebra y Patrones
                 </button>
                 <button
                     onClick={() => setActiveTab('seriacion')}

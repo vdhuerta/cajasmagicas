@@ -17,6 +17,13 @@ const levels: { name: InventoryGameDifficulty; description: string; colors: any 
     { name: 'Experto', description: '¡Un verdadero desafío! Pedidos con tres características. Solo para maestros artesanos.', colors: { bg: 'bg-red-500', hover: 'hover:bg-red-600', text: 'text-red-700' } },
 ];
 
+const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+
 const InventoryLevelModal: React.FC<InventoryLevelModalProps> = ({ onSelectLevel, onClose, completedLevels, user }) => {
   const modalTitle = "Elige la Dificultad";
   
@@ -32,19 +39,35 @@ const InventoryLevelModal: React.FC<InventoryLevelModalProps> = ({ onSelectLevel
           {levels.map((level) => {
             const difficultyMap: Record<InventoryGameDifficulty, string> = { 'Básico': 'basic', 'Medio': 'medium', 'Experto': 'expert' };
             const levelKey = `inventory_${difficultyMap[level.name]}`;
-            const isCompleted = !!(user && completedLevels.has(levelKey));
+            const isCompleted = completedLevels.has(levelKey);
+            const isCompletedAndLoggedIn = !!(isCompleted && user);
             
-            const currentColors = isCompleted 
+            const originalColors = level.colors;
+            const currentColors = isCompletedAndLoggedIn 
                 ? { bg: 'bg-slate-500', hover: 'hover:bg-slate-600', text: 'text-slate-700' } 
-                : level.colors;
+                : originalColors;
                 
             const buttonText = isCompleted ? 'Volver a Jugar' : 'Jugar';
+            
+            let buttonClasses;
+            if (isCompletedAndLoggedIn) {
+              buttonClasses = 'bg-slate-500 hover:bg-slate-600 text-white';
+            } else if (isCompleted) {
+              buttonClasses = 'bg-green-500 hover:bg-green-600 text-white';
+            } else {
+              buttonClasses = `${originalColors.bg} ${originalColors.hover} text-white`;
+            }
+            
+            const checkIconColor = isCompletedAndLoggedIn ? 'text-slate-500' : 'text-green-500';
 
             return (
-                <div key={level.name} className={`p-4 border rounded-xl flex flex-col sm:flex-row items-center gap-4 ${isCompleted ? 'bg-slate-100 border-slate-200' : ''}`}>
+                <div key={level.name} className={`p-4 border rounded-xl flex flex-col sm:flex-row items-center gap-4 ${isCompletedAndLoggedIn ? 'bg-slate-100 border-slate-200' : ''}`}>
                     <div className="flex-grow">
                         <div className="flex items-center gap-2">
-                            <h3 className={`text-2xl font-bold ${currentColors.text}`}>{level.name}</h3>
+                            <h3 className={`text-2xl font-bold ${currentColors.text}`}>
+                                {level.name}
+                                {isCompleted && <CheckCircleIcon className={`w-6 h-6 inline-block ml-2 ${checkIconColor}`} />}
+                            </h3>
                              <button onClick={() => speakText(level.name)} className="p-1 rounded-full hover:bg-slate-100 transition" aria-label={`Leer: ${level.name}`}>
                                 <AudioIcon className={`w-5 h-5 ${currentColors.text}`} />
                              </button>
@@ -53,7 +76,7 @@ const InventoryLevelModal: React.FC<InventoryLevelModalProps> = ({ onSelectLevel
                     </div>
                     <button 
                         onClick={() => onSelectLevel(level.name)}
-                        className={`w-full sm:w-auto px-8 py-3 ${currentColors.bg} ${currentColors.hover} text-white font-bold rounded-lg shadow-md transition-transform transform hover:scale-105`}
+                        className={`w-full sm:w-auto px-8 py-3 ${buttonClasses} font-bold rounded-lg shadow-md transition-transform transform hover:scale-105`}
                     >
                         {buttonText}
                     </button>

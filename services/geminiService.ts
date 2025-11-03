@@ -9,7 +9,8 @@ import { ClassificationRule } from "../types";
  */
 export const getMagicBoxName = async (rule: ClassificationRule): Promise<string> => {
     try {
-        const response = await fetch('/.netlify/functions/gemini', {
+        const functionUrl = `${window.location.origin}/.netlify/functions/gemini`;
+        const response = await fetch(functionUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ rule }),

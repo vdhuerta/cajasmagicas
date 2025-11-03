@@ -36,7 +36,7 @@ export const PEDAGOGICAL_KNOWLEDGE_BASE: Record<string, {
     },
     'Seriación': {
         description: 'Habilidad para ordenar objetos sistemáticamente según diferencias crecientes o decrecientes, como tamaño o longitud.',
-        games: ['Seriation'],
+        games: ['Seriation', 'HiddenStep', 'ColorSnake'],
         feedbackRules: {
             strength: {
                 message: "¡Excelente pensamiento lógico! Ordena secuencias con rapidez y precisión, demostrando una sólida comprensión del orden.",
@@ -127,7 +127,9 @@ export const GAME_NAME_TRANSLATIONS: Record<string, string> = {
     'VennDiagram': 'El Cruce Mágico',
     'Inventory': 'El Inventario del Duende',
     'TreasureSort': 'El Baúl de los Tesoros',
-    'Seriation': 'Continúa el Patrón',
+    'Seriation': 'Juegos de Seriación',
+    'HiddenStep': 'El Peldaño Escondido',
+    'ColorSnake': 'La Serpiente de Colores',
 };
 
 // Traduce los IDs de los niveles a español para la UI.
@@ -144,9 +146,133 @@ export const LEVEL_NAME_TRANSLATIONS: Record<string, string> = {
     'inventory_medium': 'Nivel Medio',
     'inventory_expert': 'Nivel Experto',
     'treasure_sort_game': 'Partida Única',
-    'seriation_basic': 'Nivel Básico',
+    'seriation_ascending': 'La Escalera Creciente',
+    'seriation_descending': 'La Escalera Inversa',
+    'seriation_abc-pattern': 'El Muro Tricolor',
+    'seriation_growth-pattern': 'Saltos de Gigante',
+    'hidden_step_game': 'Partida Única',
+    'color_snake_game': 'Partida Única',
 };
 
+export const DIRECTIVA_SERIES = {
+  titulo: "Didáctica del Álgebra en Educación Básica",
+  secciones: [
+    {
+      titulo: "Problema vs. Ejercicio",
+      apartados: [
+        {
+          titulo: "Definición de Problema",
+          resumen: "Una situación que provoca un bloqueo inicial, puesto que las técnicas habituales de abordarlo no funcionan. Se requiere una exploración para encontrar nuevos métodos de solución.",
+          puntos: [
+            "Es una situación desconocida para el sujeto, donde no se conoce la vía de solución.",
+            "La persona que se enfrenta a ella está motivada para trabajar en él.",
+            "Se poseen los elementos necesarios para darle solución, pero no el método. (Mazarío, 2002)"
+          ]
+        },
+        {
+          titulo: "Definición de Ejercicio",
+          resumen: "Una situación conocida, accesible y solucionable a través de una secuencia de pasos o algoritmo matemático ya conocido.",
+          puntos: [
+            "Consiste en trabajar sobre ejemplos idénticos o casi idénticos a los ya resueltos. (Llivina, 1998)",
+            "Es una exigencia para actuar donde la vía de solución es conocida para el estudiante. (Jiménez, 2000)",
+            "Es el uso repetido de destrezas (calistenia) para que se desarrollen, retengan y pongan a tono. (Dwyer y Elligett, 1970)"
+          ]
+        }
+      ]
+    },
+    {
+      titulo: "Fundamentos Curriculares",
+      apartados: [
+        {
+          titulo: "Bases Curriculares (Decreto N°439/2012)",
+          puntos: [
+            "Los estudiantes necesitan dar sentido a los contenidos matemáticos que aprenden en su transición básica.",
+            "Este 'sentido' se logra cuando los estudiantes trabajan explorando y manipulando una variedad de material concreto.",
+            "El material debe permitir el tránsito desde lo concreto-pictórico-simbólico (COPISI)."
+          ]
+        },
+        {
+          titulo: "Actualización Curricular (Propuesta 2024)",
+          ejes: {
+            actuales: ["Números y Operaciones", "Patrones y Álgebra", "Geometría", "Medición", "Datos y Probabilidades"],
+            nuevos: ["Números", "Patrones, Álgebra y Funciones", "Geometría", "Tratamiento de Datos"]
+          }
+        }
+      ]
+    },
+    {
+      titulo: "Habilidades Matemáticas Centrales",
+      descripcion: "Las Bases Curriculares declaran 4 habilidades centrales que cruzan el currículum y los ejes que buscan desarrollar el pensamiento matemático.",
+      habilidades: [
+        {
+          nombre: "Resolver Problemas",
+          descripcion: "Solucionar una situación problemática, contextualizada o no, sin que se le haya indicado un procedimiento a seguir."
+        },
+        {
+          nombre: "Argumentar y Comunicar",
+          descripcion: "Convencer a otros de la validez de los resultados obtenidos. Fomenta la discusión colectiva, escuchar y corregirse mutuamente."
+        },
+        {
+          nombre: "Modelar",
+          descripcion: "Utilizar, seleccionar, modificar y construir modelos matemáticos para representar situaciones, identificando patrones claves."
+        },
+        {
+          nombre: "Representar",
+          descripcion: "Transportar experiencias y objetos de un ámbito concreto y familiar a otro más abstracto. Por ejemplo: 'sumar es juntar', 'los números son cantidades'."
+        }
+      ]
+    },
+    {
+      titulo: "Patrones y Secuencias en el Pensamiento Algebraico",
+      apartados: [
+        {
+          titulo: "Contextualización",
+          puntos: [
+            "Los patrones son unas de las primeras experiencias en el trabajo de las matemáticas en el que se introduce nociones algebraicas.",
+            "Facilitan el desarrollo de un pensamiento matemático más abstracto en los niveles superiores, como el pensamiento algebraico."
+          ]
+        },
+        {
+          titulo: "Sucesión (Secuencia)",
+          descripcion: "Se refiere a ordenar un conjunto de objetos o eventos que ocurren a través del tiempo en forma sucesiva o lineal, siguiendo un orden estable y predecible."
+        },
+        {
+          titulo: "Clasificación de Patrones",
+          tipos: [
+            {
+              nombre: "Patrones de Repetición",
+              descripcion: "Son aquellos que tienen una secuencia de elementos que se repiten constantemente. La secuencia que se repite se denomina NÚCLEO. Tienen característica Cualitativa.",
+              estructuras: {
+                "AB": "se repiten dos elementos alternadamente.",
+                "ABC": "se repiten tres elementos alternadamente.",
+                "AAB": "se repite dos veces el mismo elemento y después otro.",
+                "AABB": "se repite dos veces un elemento y a continuación dos veces otro."
+              }
+            },
+            {
+              nombre: "Patrones de Crecimiento y Decrecimiento",
+              descripcion: "Son aquellos que aumentan o disminuyen de forma sistemática produciéndose una expansión o reducción en su núcleo. Tienen características Cuantitativas.",
+              ejemplos: ["Crecimiento: 1, 2, 3, 4, ...", "Decrecimiento: 10, 8, 6, 4, ..."]
+            },
+            {
+              nombre: "Patrones de Recurrencia",
+              descripcion: "Son aquellos en los que la regularidad con que se presentan los elementos cambia y de ellos tiene que inferirse su regla de formación, es decir, puedes descubrir cuál será el siguiente elemento observando el comportamiento de los anteriores."
+            }
+          ]
+        },
+        {
+          titulo: "Tipos de Actividad con Patrones",
+          tipos: [
+            "Reproducción de Patrones: Hay algunas actividades en las que solo tenemos que copiar un patrón dado.",
+            "Identificación de Patrones: Hay otras en las que tenemos que identificar cuál es el patrón que sigue una serie.",
+            "Extensión de Patrones: Hay otras en las que debemos identificar el patrón para seguir una serie.",
+            "Extrapolación de Patrones: Hay otras en las que debemos identificar el patrón para luego completar una serie."
+          ]
+        }
+      ]
+    }
+  ]
+};
 
 export const ALL_DIENES_BLOCKS: DienesBlockType[] = [];
 let idCounter = 0;
@@ -303,6 +429,11 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
     { id: 'INVENTORY_MEDIUM_WIN', name: 'Artesano Habilidoso', description: 'Completa el Nivel Medio del Inventario.' },
     { id: 'INVENTORY_EXPERT_WIN', 'name': 'Maestro Inventor', description: 'Completa el Nivel Experto del Inventario.' },
     { id: 'TREASURE_SORT_WIN', name: 'Coleccionista de Tesoros', description: 'Completa una ronda en El Baúl de los Tesoros.' },
-    { id: 'SERIATION_BASIC_WIN', name: 'Maestro de Patrones', description: 'Completa el Nivel Básico de Seriación.' },
+    { id: 'SERIATION_ABC_WIN', name: 'Decorador Rítmico', description: 'Completa el juego El Muro Tricolor.' },
+    { id: 'SERIATION_ASC_WIN', name: 'Constructor de Escaleras', description: 'Completa el juego La Escalera Creciente.' },
+    { id: 'SERIATION_DESC_WIN', name: 'Arquitecto Inverso', description: 'Completa el juego La Escalera Inversa.' },
+    { id: 'SERIATION_GROWTH_WIN', name: 'Saltador Experto', description: 'Completa el juego Saltos de Gigante.' },
+    { id: 'SERIATION_HIDDEN_STEP_WIN', name: 'Detective de Secuencias', description: 'Completa el juego El Peldaño Escondido.' },
+    { id: 'SERIATION_COLOR_SNAKE_WIN', name: 'Encantador de Serpientes', description: 'Completa el juego La Serpiente de Colores.' },
     { id: 'GEMINI_NAME', name: '¡Poder Mágico!', description: 'Usa la magia de la IA para nombrar una caja.' },
 ];

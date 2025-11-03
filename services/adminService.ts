@@ -2,7 +2,8 @@ import { UserProfile, PerformanceLog } from '../types';
 
 const callAdminFunction = async (action: string, payload?: any) => {
     try {
-        const response = await fetch('/.netlify/functions/admin-handler', {
+        const functionUrl = `${window.location.origin}/.netlify/functions/admin-handler`;
+        const response = await fetch(functionUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action, payload }),

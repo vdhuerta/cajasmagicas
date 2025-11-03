@@ -168,6 +168,7 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
   }, [handleDrop]);
 
   const gameTitle = "El Cruce Mágico";
+  const instructionText = "Ayuda a las figuras a cruzar los arroyos mágicos. ¡Cada una debe ir a su lugar correcto!";
   const completionTitle = "¡Lo Lograste!";
   const completionText = "¡Has clasificado todas las figuras en su lugar correcto!";
   
@@ -179,11 +180,19 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-center gap-3 mb-4">
-        <h2 className="text-3xl font-bold text-center text-cyan-600">{gameTitle}</h2>
-        <button onClick={() => speakText(gameTitle)} className="p-2 rounded-full hover:bg-cyan-100 transition" aria-label={`Leer en voz alta: ${gameTitle}`}>
-          <AudioIcon className="text-cyan-700"/>
-        </button>
+      <div className="text-center mb-4">
+        <div className="flex items-center justify-center gap-3">
+          <h2 className="text-3xl font-bold text-cyan-600">{gameTitle}</h2>
+          <button onClick={() => speakText(gameTitle)} className="p-2 rounded-full hover:bg-cyan-100 transition" aria-label={`Leer en voz alta: ${gameTitle}`}>
+            <AudioIcon className="text-cyan-700"/>
+          </button>
+        </div>
+        <div className="flex items-center justify-center gap-2 mt-2">
+          <p className="text-slate-600">{instructionText}</p>
+          <button onClick={() => speakText(instructionText)} className="p-2 rounded-full hover:bg-cyan-100 transition" aria-label={`Leer en voz alta: ${instructionText}`}>
+            <AudioIcon className="w-5 h-5 text-cyan-700"/>
+          </button>
+        </div>
       </div>
       
       {isGameComplete && (
