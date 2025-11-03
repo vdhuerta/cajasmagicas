@@ -21,6 +21,7 @@ import { TreasureChestIcon } from './components/icons/TreasureChestIcon';
 import { supabase } from './services/supabase';
 import { Session } from '@supabase/supabase-js';
 import { CogIcon } from './components/icons/CogIcon';
+import { CuisenaireIcon } from './components/icons/CuisenaireIcon';
 
 // Lazy load components for better performance
 // FIX: Replaced invalid alias 'a' with 'React'. This fix is applied to all React hooks and components below.
@@ -30,6 +31,7 @@ const OddOneOutGame = React.lazy(() => import('./components/OddOneOutGame'));
 const VennDiagramGame = React.lazy(() => import('./components/VennDiagramGame'));
 const InventoryGame = React.lazy(() => import('./components/InventoryGame'));
 const TreasureSortGame = React.lazy(() => import('./components/TreasureSortGame'));
+const SeriationGame = React.lazy(() => import('./components/SeriationGame'));
 const Achievements = React.lazy(() => import('./components/Achievements'));
 const Menu = React.lazy(() => import('./components/Menu'));
 const ClassificationLevelModal = React.lazy(() => import('./components/ClassificationLevelModal'));
@@ -46,7 +48,7 @@ const PerformanceDashboard = React.lazy(() => import('./components/PerformanceDa
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 
 
-type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort';
+type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort' | 'seriation-games' | 'seriation';
 
 const GameLoading: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center">
@@ -125,10 +127,10 @@ const App: React.FC = () => {
       logActivity('Navegando a la página de Inicio', 'system');
     } else if (game === 'achievements') {
       logActivity('Viendo el Salón de Logros', 'system');
-    } else if (game === 'classification-games') {
+    } else if (game === 'classification-games' || game === 'seriation-games') {
         setCurrentLevel(null);
         setCurrentInventoryLevel(null);
-        logActivity('Navegando a los juegos de clasificación', 'system');
+        logActivity(`Navegando a los juegos de ${game === 'seriation-games' ? 'seriación' : 'clasificación'}`, 'system');
     }
   };
 
@@ -465,6 +467,7 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
       'odd-one-out': 'El Duende Despistado',
       'venn-diagram': 'El Cruce Mágico',
       'treasure-sort': 'El Baúl de los Tesoros',
+      'seriation': 'Continúa el Patrón',
     };
     if (gameNameMap[game as keyof typeof gameNameMap]) {
       logActivity(`Iniciado ${gameNameMap[game as keyof typeof gameNameMap]}`, 'game');
@@ -680,6 +683,15 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
       theme: { text: 'text-stone-800', buttonBg: 'bg-stone-500', buttonHoverBg: 'hover:bg-stone-600', iconText: 'text-stone-500', bg: 'bg-stone-50', audioHover: 'hover:bg-stone-100', audioText: 'text-stone-700' },
       onStart: () => handleStartGame('treasure-sort'),
     },
+    'seriation': {
+      title: "Continúa el Patrón",
+      story: "Los duendes están decorando el bosque con secuencias de colores que se repiten. ¡Han empezado un patrón, pero necesitan tu ayuda para continuarlo!",
+      instructions: "Observa la secuencia de regletas. Encuentra el patrón de tres que se repite (ABC, ABC...). Luego, arrastra las dos regletas que siguen en la secuencia a los espacios vacíos. ¡Presiona 'Verificar Patrón' cuando termines!",
+      buttonText: "¡A construir!",
+      Icon: CuisenaireIcon,
+      theme: { text: 'text-sky-800', buttonBg: 'bg-sky-500', buttonHoverBg: 'hover:bg-sky-600', iconText: 'text-sky-500', bg: 'bg-sky-50', audioHover: 'hover:bg-sky-100', audioText: 'text-sky-700' },
+      onStart: () => handleStartGame('seriation'),
+    },
   };
 
   const renderGame = () => {
@@ -696,8 +708,29 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
           return currentInventoryLevel && <InventoryGame difficulty={currentInventoryLevel} onGoHome={handleChooseInventoryLevelAgain} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'treasure-sort':
           return <TreasureSortGame onGoHome={() => setActiveGame('classification-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
+      case 'seriation':
+        return <SeriationGame onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'achievements':
         return <Achievements unlockedAchievements={currentUser?.unlockedAchievements || {}} />;
+      case 'seriation-games':
+        return (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+             <h1 className="text-5xl font-bold text-sky-700 mb-4">Juegos de Seriación</h1>
+             <p className="text-xl text-slate-600 max-w-2xl md:max-w-4xl mb-12">¡Aprende a ordenar objetos en secuencias lógicas!</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <button
+                onClick={() => setIntroGameKey('seriation')}
+                className="relative px-8 py-4 bg-sky-400 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 hover:bg-sky-500"
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <CuisenaireIcon className="w-7 h-7" />
+                  <span className="font-bold">Continúa el Patrón</span>
+                </div>
+                <span className="block text-sm font-normal opacity-90 mt-1">Nivel Básico</span>
+              </button>
+            </div>
+          </div>
+        );
       case 'classification-games':
         const welcomeTitle = "Juegos de Clasificación";
         const welcomeText = "¡Ayuda a los duendes a ordenar sus figuras mágicas usando diferentes reglas!";
@@ -805,10 +838,12 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
                     <h2 className="text-3xl font-bold text-rose-600 mb-3">Clasificación</h2>
                     <p className="text-slate-600">Aprende a agrupar objetos por sus características como color, forma y tamaño.</p>
                 </div>
-                 <div className="p-8 bg-white/50 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg opacity-60 cursor-not-allowed">
+                 <div
+                    onClick={() => setActiveGame('seriation-games')}
+                    className="p-8 bg-white/70 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer"
+                 >
                     <h2 className="text-3xl font-bold text-sky-600 mb-3">Seriación</h2>
                     <p className="text-slate-600">Ordena objetos en una secuencia lógica, como del más pequeño al más grande.</p>
-                    <span className="inline-block mt-4 px-3 py-1 bg-sky-200 text-sky-800 text-sm font-semibold rounded-full">Próximamente</span>
                 </div>
                 <div className="p-8 bg-white/50 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg opacity-60 cursor-not-allowed">
                     <h2 className="text-3xl font-bold text-amber-600 mb-3">Conservación</h2>

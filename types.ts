@@ -145,3 +145,11 @@ export interface PerformanceLog {
   time_taken_ms: number;
   total_items?: number;
 }
+
+// NEW type for Cuisenaire Rods
+export interface CuisenaireRodType {
+  id: string;
+  value: number;
+  colorName: string;
+  colorHex: string;
+}

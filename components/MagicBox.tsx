@@ -36,8 +36,11 @@ const MagicBox: React.FC<MagicBoxProps> = ({ id, label, onDrop, blocks, children
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsOver(false);
-    const blockData = JSON.parse(e.dataTransfer.getData('dienes-block'));
-    onDrop(id, blockData);
+    const blockDataString = e.dataTransfer.getData('dienes-block');
+    if (blockDataString) {
+        const blockData = JSON.parse(blockDataString);
+        onDrop(id, blockData);
+    }
   };
   
   const handleSpeak = (e: React.MouseEvent) => {
@@ -51,8 +54,11 @@ const MagicBox: React.FC<MagicBoxProps> = ({ id, label, onDrop, blocks, children
 
     const handleTouchDrop = (e: Event) => {
         const customEvent = e as CustomEvent;
-        const blockData = JSON.parse(customEvent.detail.blockData);
-        onDrop(id, blockData);
+        const blockDataString = customEvent.detail.blockData;
+        if (blockDataString) {
+            const blockData = JSON.parse(blockDataString);
+            onDrop(id, blockData);
+        }
         setIsOver(false);
     };
 

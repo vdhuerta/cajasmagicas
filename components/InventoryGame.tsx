@@ -160,8 +160,11 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
 
     const handleTouchDrop = (e: Event) => {
         const customEvent = e as CustomEvent;
-        const block = JSON.parse(customEvent.detail.blockData);
-        handleDropInBasket(block);
+        const blockDataString = customEvent.detail.blockData;
+        if (blockDataString) {
+            const block = JSON.parse(blockDataString);
+            handleDropInBasket(block);
+        }
         setIsBasketOver(false);
     };
 
@@ -256,8 +259,11 @@ const InventoryGame: React.FC<InventoryGameProps> = ({ difficulty, onGoHome, onU
   const handleDragDrop = (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       setIsBasketOver(false);
-      const blockData = JSON.parse(e.dataTransfer.getData('dienes-block')) as DienesBlockType;
-      handleDropInBasket(blockData);
+      const blockDataString = e.dataTransfer.getData('dienes-block');
+      if (blockDataString) {
+        const blockData = JSON.parse(blockDataString) as DienesBlockType;
+        handleDropInBasket(blockData);
+      }
   };
   
   const moveFromBasketToPile = (block: DienesBlockType) => {

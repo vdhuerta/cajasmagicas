@@ -118,8 +118,11 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
   
   const onDrop = (e: DragEvent<HTMLDivElement>, zoneId: VennZone) => {
     e.preventDefault();
-    const blockData = JSON.parse(e.dataTransfer.getData('dienes-block'));
-    handleDrop(zoneId, blockData);
+    const blockDataString = e.dataTransfer.getData('dienes-block');
+    if (blockDataString) {
+      const blockData = JSON.parse(blockDataString);
+      handleDrop(zoneId, blockData);
+    }
     setDraggedOverZone(null);
   }
 
@@ -137,8 +140,11 @@ const VennDiagramGame: React.FC<VennDiagramGameProps> = ({ onGoHome, onUnlockAch
         const zoneId = findZoneId(e.target);
         if (zoneId) {
             const customEvent = e as CustomEvent;
-            const block = JSON.parse(customEvent.detail.blockData);
-            handleDrop(zoneId, block);
+            const blockDataString = customEvent.detail.blockData;
+            if (blockDataString) {
+                const block = JSON.parse(blockDataString);
+                handleDrop(zoneId, block);
+            }
             setDraggedOverZone(null);
         }
     };

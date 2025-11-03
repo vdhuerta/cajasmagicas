@@ -7,7 +7,7 @@ import { TrashIcon } from './icons/TrashIcon';
 import { UserProfile } from '../types';
 import { DocumentReportIcon } from './icons/DocumentReportIcon';
 
-type NavigatableGame = 'classification-games' | 'achievements' | 'ranking';
+type NavigatableGame = 'classification-games' | 'achievements' | 'ranking' | 'seriation-games';
 
 interface MenuProps {
   onNavigate: (game: NavigatableGame) => void;
@@ -29,12 +29,11 @@ const Menu: React.FC<MenuProps> = ({ onNavigate, onClearData, user, onOpenDashbo
         </button>
 
         <button
-          disabled
-          className="w-full flex items-center gap-3 px-4 py-2 text-slate-400 cursor-not-allowed"
+          onClick={() => onNavigate('seriation-games')}
+          className="w-full flex items-center gap-3 px-4 py-2 text-slate-700 hover:bg-sky-100 transition"
         >
           <SeriationIcon />
           <span>Seriación</span>
-          <span className="ml-auto text-xs font-semibold bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">Pronto</span>
         </button>
         
         <button

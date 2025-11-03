@@ -1,4 +1,4 @@
-import { DienesBlockType, Shape, Color, Size, Thickness, GameLevel, Achievement, TreasureObject, ObjectType, Pattern, Holes } from './types';
+import { DienesBlockType, Shape, Color, Size, Thickness, GameLevel, Achievement, TreasureObject, ObjectType, Pattern, Holes, CuisenaireRodType } from './types';
 
 export const SHAPES = [Shape.Circle, Shape.Square, Shape.Triangle, Shape.Rectangle];
 export const COLORS = [Color.Red, Color.Blue, Color.Yellow];
@@ -31,6 +31,24 @@ export const PEDAGOGICAL_KNOWLEDGE_BASE: Record<string, {
             opportunity: {
                 message: "Se observa un área de oportunidad en la clasificación.",
                 recommendation: "Reforzar la identificación de atributos como color y forma con objetos cotidianos."
+            }
+        }
+    },
+    'Seriación': {
+        description: 'Habilidad para ordenar objetos sistemáticamente según diferencias crecientes o decrecientes, como tamaño o longitud.',
+        games: ['Seriation'],
+        feedbackRules: {
+            strength: {
+                message: "¡Excelente pensamiento lógico! Ordena secuencias con rapidez y precisión, demostrando una sólida comprensión del orden.",
+                recommendation: "Introducir secuencias más largas o con patrones más complejos (ej. de 2 en 2)."
+            },
+            consolidating: {
+                message: "Comprende bien el concepto de seriación, aunque a veces necesita ensayar para encontrar el orden correcto.",
+                recommendation: "Practicar con secuencias descendentes y animar a verbalizar por qué un elemento va antes que otro."
+            },
+            opportunity: {
+                message: "La habilidad de ordenar secuencias lógicas está en desarrollo.",
+                recommendation: "Comenzar con secuencias cortas y muy evidentes (ej. 3 elementos consecutivos) para construir la confianza."
             }
         }
     },
@@ -109,6 +127,7 @@ export const GAME_NAME_TRANSLATIONS: Record<string, string> = {
     'VennDiagram': 'El Cruce Mágico',
     'Inventory': 'El Inventario del Duende',
     'TreasureSort': 'El Baúl de los Tesoros',
+    'Seriation': 'Continúa el Patrón',
 };
 
 // Traduce los IDs de los niveles a español para la UI.
@@ -125,6 +144,7 @@ export const LEVEL_NAME_TRANSLATIONS: Record<string, string> = {
     'inventory_medium': 'Nivel Medio',
     'inventory_expert': 'Nivel Experto',
     'treasure_sort_game': 'Partida Única',
+    'seriation_basic': 'Nivel Básico',
 };
 
 
@@ -229,6 +249,19 @@ export const GAME_LEVELS: GameLevel[] = [
     }
 ];
 
+export const ALL_CUISENAIRE_RODS: CuisenaireRodType[] = [
+    { id: 'rod-1', value: 1, colorName: 'Blanco', colorHex: '#f8f8f8' },
+    { id: 'rod-2', value: 2, colorName: 'Rojo', colorHex: '#ef4444' },
+    { id: 'rod-3', value: 3, colorName: 'Verde Claro', colorHex: '#84cc16' },
+    { id: 'rod-4', value: 4, colorName: 'Rosa', colorHex: '#ec4899' },
+    { id: 'rod-5', value: 5, colorName: 'Amarillo', colorHex: '#eab308' },
+    { id: 'rod-6', value: 6, colorName: 'Verde Oscuro', colorHex: '#22c55e' },
+    { id: 'rod-7', value: 7, colorName: 'Negro', colorHex: '#1f2937' },
+    { id: 'rod-8', value: 8, colorName: 'Marrón', colorHex: '#a16207' },
+    { id: 'rod-9', value: 9, colorName: 'Azul', colorHex: '#3b82f6' },
+    { id: 'rod-10', value: 10, colorName: 'Naranja', colorHex: '#f97316' },
+];
+
 export const TAILWIND_COLORS: Record<Color, { bg: string; border: string; svg: string; stroke: string; edge: string; }> = {
     [Color.Red]: { bg: 'bg-red-400', border: 'border-red-600', svg: 'fill-red-400', stroke: 'stroke-red-600', edge: 'fill-red-700' },
     [Color.Blue]: { bg: 'bg-blue-400', border: 'border-blue-600', svg: 'fill-blue-400', stroke: 'stroke-blue-600', edge: 'fill-blue-700' },
@@ -270,5 +303,6 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
     { id: 'INVENTORY_MEDIUM_WIN', name: 'Artesano Habilidoso', description: 'Completa el Nivel Medio del Inventario.' },
     { id: 'INVENTORY_EXPERT_WIN', 'name': 'Maestro Inventor', description: 'Completa el Nivel Experto del Inventario.' },
     { id: 'TREASURE_SORT_WIN', name: 'Coleccionista de Tesoros', description: 'Completa una ronda en El Baúl de los Tesoros.' },
+    { id: 'SERIATION_BASIC_WIN', name: 'Maestro de Patrones', description: 'Completa el Nivel Básico de Seriación.' },
     { id: 'GEMINI_NAME', name: '¡Poder Mágico!', description: 'Usa la magia de la IA para nombrar una caja.' },
 ];
