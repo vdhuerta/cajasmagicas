@@ -8,9 +8,10 @@ import { ClassificationRule } from "../types";
  * @returns A promise that resolves to a creative name string.
  */
 export const getMagicBoxName = async (rule: ClassificationRule): Promise<string> => {
-    // FIX: Using a relative path `/api/` which is a standard convention for proxying to serverless functions in environments like Netlify.
-    // This avoids issues where the direct function URL might not be correctly resolved, leading to the server returning the main HTML file.
-    const functionUrl = '/api/gemini';
+    // FIX: Changed the function URL to the direct Netlify path to bypass potential routing issues.
+    // This direct path is the canonical way to access the function and works consistently
+    // across both local development (AI Studio) and production (Netlify hosting).
+    const functionUrl = '/.netlify/functions/gemini';
     
     try {
         const response = await fetch(functionUrl, {
@@ -23,11 +24,11 @@ export const getMagicBoxName = async (rule: ClassificationRule): Promise<string>
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
             const responseText = await response.text();
-            console.error("Received non-JSON response from gemini function. It may be an HTML fallback.", responseText.substring(0, 200));
+            console.error(`Received non-JSON response from ${functionUrl}. It may be an HTML fallback.`, responseText.substring(0, 200));
             if (responseText.trim().startsWith('<!DOCTYPE')) {
-                 throw new Error(`Unexpected token '<', "<!DOCTYPE "... is not valid JSON. This usually means the API path is wrong.`);
+                 throw new Error(`Error de ruta: La llamada a la API en '${functionUrl}' recibió HTML en lugar de JSON. Esto suele ocurrir por una mala configuración de las redirecciones del servidor.`);
             }
-            throw new Error('Received non-JSON response from server.');
+            throw new Error('La respuesta del servidor no es un JSON válido.');
         }
         
         const data = await response.json();

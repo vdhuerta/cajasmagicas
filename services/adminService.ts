@@ -1,10 +1,10 @@
 import { UserProfile, PerformanceLog } from '../types';
 
 const callAdminFunction = async (action: string, payload?: any) => {
-    // Usar la ruta de reescritura /api/ es una convención estándar y robusta que Netlify
-    // redirigirá a la función de servidor correcta. Esto es más limpio y consistente
-    // con cómo se llama a la función de Gemini.
-    const functionUrl = '/api/admin-handler'; 
+    // FIX: Changed the function URL to the direct Netlify path to bypass potential routing issues.
+    // This direct path is the canonical way to access the function and works consistently
+    // across both local development (AI Studio) and production (Netlify hosting).
+    const functionUrl = '/.netlify/functions/admin-handler'; 
     
     try {
         const response = await fetch(functionUrl, {
@@ -17,7 +17,7 @@ const callAdminFunction = async (action: string, payload?: any) => {
         if (!contentType || !contentType.includes('application/json')) {
             const responseText = await response.text();
             if (responseText.trim().startsWith('<!DOCTYPE')) {
-                 throw new Error(`Error de ruta: La llamada a la API recibió HTML. Revisa que la función '/api/admin-handler' esté desplegada correctamente en Netlify.`);
+                 throw new Error(`Error de ruta: La llamada a la API en '${functionUrl}' recibió HTML. Revisa que la función esté desplegada correctamente en Netlify.`);
             }
             throw new Error('La respuesta del servidor no es un JSON válido.');
         }
