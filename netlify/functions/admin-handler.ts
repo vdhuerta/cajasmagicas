@@ -21,7 +21,7 @@ const handler: Handler = async (event) => {
         const { data, error } = await supabaseAdmin
           .from('usuarios')
           .select('*')
-          .order('firstName', { ascending: true });
+          .order('score', { ascending: false });
         if (error) throw error;
         return { statusCode: 200, body: JSON.stringify(data) };
       }

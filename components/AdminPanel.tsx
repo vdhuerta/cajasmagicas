@@ -11,6 +11,8 @@ import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 // FIX: Changed named import to default import for PencilIcon.
 import PencilIcon from './icons/PencilIcon';
 import { TrashIcon } from './icons/TrashIcon';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from '../services/supabase';
 
 interface AdminPanelProps {
     onClose: () => void;
@@ -27,10 +29,35 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     const [editModalUser, setEditModalUser] = useState<UserProfile | null>(null);
     const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserProfile | null>(null);
 
+    const [onlineCount, setOnlineCount] = useState(0);
+
     useEffect(() => {
         if (isAuthenticated) {
             fetchUsers();
         }
+    }, [isAuthenticated]);
+
+    // Effect for listening to real-time presence
+    useEffect(() => {
+        if (!isAuthenticated || !supabase) return;
+
+        const channel: RealtimeChannel = supabase.channel('online-users');
+
+        const handlePresenceUpdate = () => {
+            const currentState = channel.presenceState();
+            const count = Object.keys(currentState).length;
+            setOnlineCount(count);
+        };
+
+        channel
+            .on('presence', { event: 'sync' }, handlePresenceUpdate)
+            .on('presence', { event: 'join' }, handlePresenceUpdate)
+            .on('presence', { event: 'leave' }, handlePresenceUpdate)
+            .subscribe();
+            
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [isAuthenticated]);
 
     const fetchUsers = async () => {
@@ -81,28 +108,44 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 <header className="p-4 border-b border-slate-200 flex-shrink-0 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         <UserGroupIcon className="w-8 h-8 text-sky-600" />
-                        <h2 className="text-2xl font-bold text-sky-800">Panel de Administración de Usuarios</h2>
+                        <h2 className="text-2xl font-bold text-sky-800">Panel de Administración</h2>
                     </div>
                     <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-800 transition rounded-full hover:bg-slate-200" aria-label="Cerrar">
                         <CloseIcon />
                     </button>
                 </header>
 
-                <div className="p-4 flex-shrink-0">
-                    <div className="relative">
-                        <input
-                            type="text"
-                            placeholder="Buscar por nombre o correo..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-sky-500 focus:border-sky-500"
-                        />
-                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <div className="p-4 flex-shrink-0 border-b border-slate-200">
+                     <div className="flex items-center justify-between gap-4">
+                        <div className="relative flex-grow">
+                            <input
+                                type="text"
+                                placeholder="Buscar por nombre o correo..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-sky-500 focus:border-sky-500"
+                            />
+                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        </div>
+                        <div className="flex items-center gap-4 ml-4 text-sm text-slate-500 flex-shrink-0">
+                            <p>
+                                Total de Registros: <span className="font-bold text-slate-700">{users.length}</span>
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <span className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                </span>
+                                <p>
+                                    Conectados: <span className="font-bold text-green-600">{onlineCount}</span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
                     {error && <p className="text-red-600 text-sm mt-2 text-center">{error}</p>}
                 </div>
                 
-                <main className="flex-grow overflow-y-auto px-4 pb-4">
+                <main className="flex-grow overflow-y-auto px-4 py-4">
                     {isLoading ? (
                         <div className="flex justify-center items-center h-full"><p className="text-slate-500">Cargando usuarios...</p></div>
                     ) : (
@@ -112,7 +155,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                                     <div className="flex-grow">
                                         <p className="font-bold text-slate-800">{user.firstName} {user.lastName}</p>
                                         <p className="text-sm text-slate-500">{user.email}</p>
-                                        <p className="text-sm text-sky-600 font-semibold">{user.score} puntos</p>
+                                        <p className="text-sm text-sky-600 font-semibold">{user.score.toLocaleString('es-ES')} puntos</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => setDetailsModalUser(user)} className="p-2 text-slate-500 hover:text-sky-700 hover:bg-sky-100 rounded-md transition" title="Ver Detalles"><MagnifyingGlassIcon className="w-5 h-5" /></button>

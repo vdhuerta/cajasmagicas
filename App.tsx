@@ -19,7 +19,7 @@ import { VennDiagramIcon } from './components/icons/VennDiagramIcon';
 import { ClipboardListIcon } from './components/icons/ClipboardListIcon';
 import { TreasureChestIcon } from './components/icons/TreasureChestIcon';
 import { supabase } from './services/supabase';
-import { Session } from '@supabase/supabase-js';
+import { Session, RealtimeChannel } from '@supabase/supabase-js';
 import { CogIcon } from './components/icons/CogIcon';
 import { CuisenaireIcon } from './components/icons/CuisenaireIcon';
 import { StairsIcon } from './components/icons/StairsIcon';
@@ -241,6 +241,30 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
       };
     }
   }, [fetchUserProfile]);
+
+  // Announce user presence when logged in
+  React.useEffect(() => {
+    if (!supabase || !currentUser) return;
+
+    const channel: RealtimeChannel = supabase.channel('online-users', {
+      config: {
+        presence: {
+          key: currentUser.id,
+        },
+      },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        channel.track({ user_id: currentUser.id, name: currentUser.firstName });
+      })
+      .subscribe();
+
+    // Cleanup function to untrack user on component unmount or user change
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]); // This effect depends on the current user
 
 
   React.useEffect(() => {
