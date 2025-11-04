@@ -11,8 +11,6 @@ import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 // FIX: Changed named import to default import for PencilIcon.
 import PencilIcon from './icons/PencilIcon';
 import { TrashIcon } from './icons/TrashIcon';
-import { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase } from '../services/supabase';
 
 interface AdminPanelProps {
     onClose: () => void;
@@ -29,45 +27,22 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     const [editModalUser, setEditModalUser] = useState<UserProfile | null>(null);
     const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserProfile | null>(null);
 
-    const [onlineCount, setOnlineCount] = useState(0);
-
     useEffect(() => {
         if (isAuthenticated) {
             fetchUsers();
         }
     }, [isAuthenticated]);
 
-    // Effect for listening to real-time presence
-    useEffect(() => {
-        if (!isAuthenticated || !supabase) return;
-
-        const channel: RealtimeChannel = supabase.channel('online-users');
-
-        const handlePresenceUpdate = () => {
-            const currentState = channel.presenceState();
-            const count = Object.keys(currentState).length;
-            setOnlineCount(count);
-        };
-
-        channel
-            .on('presence', { event: 'sync' }, handlePresenceUpdate)
-            .on('presence', { event: 'join' }, handlePresenceUpdate)
-            .on('presence', { event: 'leave' }, handlePresenceUpdate)
-            .subscribe();
-            
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [isAuthenticated]);
-
     const fetchUsers = async () => {
         setIsLoading(true);
         setError('');
         try {
-            const fetchedUsers = await adminService.fetchAllUsers();
-            setUsers(fetchedUsers);
+            const data = await adminService.fetchAllUsers();
+            // Sort by score client-side for immediate feedback
+            data.sort((a, b) => b.score - a.score);
+            setUsers(data);
         } catch (err: any) {
-            setError('Error al cargar los usuarios. Asegúrate de que la función del servidor está configurada correctamente.');
+            setError(`Error al cargar los usuarios. Asegúrate de que la función del servidor está configurada correctamente. Error: ${err.message}`);
             console.error(err);
         } finally {
             setIsLoading(false);
@@ -82,6 +57,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         if (!deleteConfirmUser) return;
         
         try {
+            // Write operations still go through the secure serverless function.
             await adminService.deleteUser(deleteConfirmUser.id);
             setUsers(prevUsers => prevUsers.filter(u => u.id !== deleteConfirmUser.id));
             setDeleteConfirmUser(null);
@@ -131,23 +107,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                             <p>
                                 Total de Registros: <span className="font-bold text-slate-700">{users.length}</span>
                             </p>
-                            <div className="flex items-center gap-2">
-                                <span className="relative flex h-3 w-3">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                                </span>
-                                <p>
-                                    Conectados: <span className="font-bold text-green-600">{onlineCount}</span>
-                                </p>
-                            </div>
                         </div>
                     </div>
-                    {error && <p className="text-red-600 text-sm mt-2 text-center">{error}</p>}
+                    {error && <p className="text-red-600 text-sm mt-2 text-center bg-red-50 p-2 rounded-md">{error}</p>}
                 </div>
                 
                 <main className="flex-grow overflow-y-auto px-4 py-4">
                     {isLoading ? (
-                        <div className="flex justify-center items-center h-full"><p className="text-slate-500">Cargando usuarios...</p></div>
+                        <div className="flex justify-center items-center h-full"><p className="text-slate-500 animate-pulse">Cargando usuarios...</p></div>
                     ) : (
                         <div className="space-y-2">
                             {filteredUsers.map(user => (

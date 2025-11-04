@@ -1,8 +1,9 @@
 import { UserProfile, PerformanceLog } from '../types';
 
 const callAdminFunction = async (action: string, payload?: any) => {
-    // FIX: Using a relative path `/api/` which is a standard convention for proxying to serverless functions in environments like Netlify.
-    // This avoids issues where the direct function URL might not be correctly resolved, leading to the server returning the main HTML file.
+    // Usar la ruta de reescritura /api/ es una convención estándar y robusta que Netlify
+    // redirigirá a la función de servidor correcta. Esto es más limpio y consistente
+    // con cómo se llama a la función de Gemini.
     const functionUrl = '/api/admin-handler'; 
     
     try {
@@ -12,27 +13,24 @@ const callAdminFunction = async (action: string, payload?: any) => {
             body: JSON.stringify({ action, payload }),
         });
 
-        // First, check if the response is JSON before trying to parse.
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
-            // This catches cases where the server returns HTML (like a 404 page that's actually index.html).
             const responseText = await response.text();
-            // We can even check if it looks like HTML to give a better error.
             if (responseText.trim().startsWith('<!DOCTYPE')) {
-                 throw new Error(`Unexpected token '<', "<!DOCTYPE "... is not valid JSON. This usually means the API path is wrong.`);
+                 throw new Error(`Error de ruta: La llamada a la API recibió HTML. Revisa que la función '/api/admin-handler' esté desplegada correctamente en Netlify.`);
             }
-            throw new Error('Received non-JSON response from server.');
+            throw new Error('La respuesta del servidor no es un JSON válido.');
         }
 
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || `Server responded with status ${response.status}`);
+            throw new Error(data.error || `El servidor respondió con el estado ${response.status}`);
         }
 
         return data;
     } catch (error) {
-        console.error(`Admin service error on action '${action}':`, error);
+        console.error(`Error en el servicio de admin en la acción '${action}':`, error);
         throw error;
     }
 };

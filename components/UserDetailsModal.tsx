@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserProfile, PerformanceLog } from '../types';
-import { fetchUserPerformanceLogs } from '../services/adminService';
 import { CloseIcon } from './icons/CloseIcon';
 import { ALL_ACHIEVEMENTS, GAME_NAME_TRANSLATIONS, LEVEL_NAME_TRANSLATIONS, PEDAGOGICAL_KNOWLEDGE_BASE, GAME_SKILL_MAP } from '../constants';
 import RadarChart from './RadarChart';
@@ -8,6 +7,7 @@ import { StarIcon } from './icons/StarIcon';
 import { WarningIcon } from './icons/WarningIcon';
 import { TrendingUpIcon } from './icons/TrendingUpIcon';
 import { LightbulbIcon } from './icons/LightbulbIcon';
+import { fetchUserPerformanceLogs } from '../services/adminService';
 
 
 interface UserDetailsModalProps {
@@ -129,15 +129,19 @@ const getInsightsForCategory = (insights: any[]) => {
 const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ user, onClose }) => {
     const [logs, setLogs] = useState<PerformanceLog[]>([]);
     const [isLoadingLogs, setIsLoadingLogs] = useState(true);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         const loadLogs = async () => {
             setIsLoadingLogs(true);
+            setError('');
             try {
-                const userLogs = await fetchUserPerformanceLogs(user.id);
-                setLogs(userLogs);
+                // Use the centralized admin service to fetch logs via the serverless function
+                const data = await fetchUserPerformanceLogs(user.id);
+                setLogs(data);
             } catch (error) {
-                console.error("Failed to fetch user logs", error);
+                console.error("Failed to fetch user logs via service", error);
+                setError("No se pudieron cargar los registros de desempeño del servidor.");
             } finally {
                 setIsLoadingLogs(false);
             }
@@ -247,7 +251,9 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ user, onClose }) =>
                 
                 <div className="flex-grow overflow-y-auto p-6 space-y-6">
                      {isLoadingLogs ? (
-                         <div className="flex justify-center items-center h-full"><p className="text-slate-500">Cargando datos de desempeño...</p></div>
+                         <div className="flex justify-center items-center h-full"><p className="text-slate-500 animate-pulse">Cargando datos de desempeño...</p></div>
+                     ) : error ? (
+                        <div className="text-center text-red-500 py-10"><p>{error}</p></div>
                      ) : logs.length === 0 ? (
                         <div className="text-center text-slate-500 py-10">
                             <h4 className="font-bold text-lg text-emerald-700 mb-2">Sin Registros de Desempeño</h4>
