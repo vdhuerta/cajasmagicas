@@ -1,6 +1,12 @@
 // services/geminiService.ts
 import { ClassificationRule } from "../types";
 
+// Se construye la URL absoluta para la función de Netlify en tiempo de ejecución.
+// Esto evita problemas de enrutamiento con las reglas de redirección para SPAs en Netlify.
+const getAbsoluteFunctionUrl = (functionName: string): string => {
+    return `${window.location.origin}/.netlify/functions/${functionName}`;
+};
+
 /**
  * Calls a secure Netlify serverless function to get a creative name for a magic box.
  * This avoids exposing the Gemini API key on the client.
@@ -8,10 +14,9 @@ import { ClassificationRule } from "../types";
  * @returns A promise that resolves to a creative name string.
  */
 export const getMagicBoxName = async (rule: ClassificationRule): Promise<string> => {
-    // FIX: Changed the function URL to the direct Netlify path to bypass potential routing issues.
-    // This direct path is the canonical way to access the function and works consistently
-    // across both local development (AI Studio) and production (Netlify hosting).
-    const functionUrl = '/.netlify/functions/gemini';
+    // FIX: Se utiliza la URL absoluta para asegurar que la llamada llegue a la función
+    // y no sea interceptada por las reglas de enrutamiento de la SPA de Netlify.
+    const functionUrl = getAbsoluteFunctionUrl('gemini');
     
     try {
         const response = await fetch(functionUrl, {
@@ -20,13 +25,13 @@ export const getMagicBoxName = async (rule: ClassificationRule): Promise<string>
             body: JSON.stringify({ rule }),
         });
 
-        // First, check if the response is JSON before trying to parse.
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
             const responseText = await response.text();
             console.error(`Received non-JSON response from ${functionUrl}. It may be an HTML fallback.`, responseText.substring(0, 200));
             if (responseText.trim().startsWith('<!DOCTYPE')) {
-                 throw new Error(`Error de ruta: La llamada a la API en '${functionUrl}' recibió HTML en lugar de JSON. Esto suele ocurrir por una mala configuración de las redirecciones del servidor.`);
+                 // Este es el error más común: Netlify devuelve el index.html de la SPA.
+                 throw new Error(`Error de enrutamiento del servidor: Se recibió una página HTML en lugar de datos JSON. Esto suele ocurrir por una configuración incorrecta de redirección en Netlify ('netlify.toml').`);
             }
             throw new Error('La respuesta del servidor no es un JSON válido.');
         }
