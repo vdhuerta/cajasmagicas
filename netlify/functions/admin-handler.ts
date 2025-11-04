@@ -20,8 +20,7 @@ const handler: Handler = async (event) => {
       case 'GET_ALL_USERS': {
         const { data, error } = await supabaseAdmin
           .from('usuarios')
-          .select('*')
-          .order('score', { ascending: false, nullsFirst: false });
+          .select('*');
         if (error) throw error;
         return { statusCode: 200, body: JSON.stringify(data) };
       }
