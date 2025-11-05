@@ -7,7 +7,7 @@ import { StarIcon } from './icons/StarIcon';
 import { WarningIcon } from './icons/WarningIcon';
 import { TrendingUpIcon } from './icons/TrendingUpIcon';
 import { LightbulbIcon } from './icons/LightbulbIcon';
-import { fetchUserPerformanceLogs } from '../services/adminService';
+import { supabase } from '../services/supabase';
 
 
 interface UserDetailsModalProps {
@@ -136,12 +136,24 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ user, onClose }) =>
             setIsLoadingLogs(true);
             setError('');
             try {
-                // Use the centralized admin service to fetch logs via the serverless function
-                const data = await fetchUserPerformanceLogs(user.id);
-                setLogs(data);
-            } catch (error) {
-                console.error("Failed to fetch user logs via service", error);
-                setError("No se pudieron cargar los registros de desempeño del servidor.");
+                if (!supabase) {
+                    throw new Error("Cliente de Supabase no está disponible.");
+                }
+
+                const { data, error: fetchError } = await supabase
+                    .from('performance_logs')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
+                
+                if (fetchError) {
+                    throw fetchError;
+                }
+
+                setLogs(data as PerformanceLog[]);
+            } catch (err: any) {
+                console.error("Failed to fetch user logs directly:", err);
+                setError(`No se pudieron cargar los registros de desempeño: ${err.message}. Esto puede deberse a las políticas de seguridad de la base de datos (RLS).`);
             } finally {
                 setIsLoadingLogs(false);
             }

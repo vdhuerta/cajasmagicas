@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, CareerOption, SectionOption } from '../types';
-import { updateUser } from '../services/adminService';
+import * as adminService from '../services/adminService';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface EditUserModalProps {
@@ -42,10 +42,14 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onUserUpda
         setIsLoading(true);
         setError('');
         try {
-            const updatedUser = await updateUser({
-                id: user.id,
-                ...formData
+            const updatedUser = await adminService.updateUser(user.id, {
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                career: formData.career,
+                section: formData.section,
+                score: formData.score,
             });
+
             onUserUpdated(updatedUser);
             onClose();
         } catch (err: any) {
@@ -97,7 +101,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onUserUpda
                             <label htmlFor="score" className="block text-sm font-medium text-slate-700">Puntaje</label>
                             <input type="number" id="score" name="score" value={formData.score} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500" />
                         </div>
-                        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                        {error && <p className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-md border border-red-200">{error}</p>}
                     </div>
 
                     <footer className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">

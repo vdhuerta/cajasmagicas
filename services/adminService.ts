@@ -1,4 +1,5 @@
-import { UserProfile, PerformanceLog } from '../types';
+// services/adminService.ts
+import { UserProfile } from '../types';
 
 // Se construye la URL absoluta para la función de Netlify en tiempo de ejecución.
 // Esto evita problemas de enrutamiento con las reglas de redirección para SPAs en Netlify,
@@ -42,16 +43,8 @@ const callAdminFunction = async (action: string, payload?: any) => {
     }
 };
 
-export const fetchAllUsers = (): Promise<UserProfile[]> => {
-    return callAdminFunction('GET_ALL_USERS');
-};
-
-export const fetchUserPerformanceLogs = (userId: string): Promise<PerformanceLog[]> => {
-    return callAdminFunction('GET_USER_LOGS', { userId });
-};
-
-export const updateUser = (user: Partial<UserProfile> & { id: string }): Promise<UserProfile> => {
-    return callAdminFunction('UPDATE_USER', user);
+export const updateUser = (id: string, updates: Partial<Omit<UserProfile, 'id' | 'email'>>): Promise<UserProfile> => {
+    return callAdminFunction('UPDATE_USER', { id, ...updates });
 };
 
 export const deleteUser = (userId: string): Promise<{ message: string }> => {

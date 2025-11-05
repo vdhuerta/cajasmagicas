@@ -5,12 +5,12 @@ import AdminPasswordModal from './AdminPasswordModal';
 import UserDetailsModal from './UserDetailsModal';
 import EditUserModal from './EditUserModal';
 import { CloseIcon } from './icons/CloseIcon';
-// FIX: Changed named import to default import for UserGroupIcon.
-import UserGroupIcon from './icons/UserGroupIcon';
+import { CogIcon } from './icons/CogIcon';
 import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 // FIX: Changed named import to default import for PencilIcon.
 import PencilIcon from './icons/PencilIcon';
 import { TrashIcon } from './icons/TrashIcon';
+import { supabase } from '../services/supabase';
 
 interface AdminPanelProps {
     onClose: () => void;
@@ -37,12 +37,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         setIsLoading(true);
         setError('');
         try {
-            const data = await adminService.fetchAllUsers();
-            // Sort by score client-side for immediate feedback
-            data.sort((a, b) => b.score - a.score);
-            setUsers(data);
+            // Replaced adminService call with direct Supabase client call, as requested.
+            // This mirrors the logic used in the Ranking feature.
+            if (!supabase) {
+                throw new Error("Cliente de Supabase no está disponible.");
+            }
+            
+            const { data, error: fetchError } = await supabase
+                .from('usuarios')
+                .select('*')
+                .order('score', { ascending: false });
+
+            if (fetchError) {
+                throw fetchError;
+            }
+            
+            setUsers(data as UserProfile[]);
         } catch (err: any) {
-            setError(`Error al cargar los usuarios. Asegúrate de que la función del servidor está configurada correctamente. Error: ${err.message}`);
+            setError(`Error al cargar los usuarios: ${err.message}. Revisa las políticas de seguridad (RLS) de la tabla 'usuarios'.`);
             console.error(err);
         } finally {
             setIsLoading(false);
@@ -83,7 +95,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
             <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col relative animate-fade-in-up">
                 <header className="p-4 border-b border-slate-200 flex-shrink-0 flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <UserGroupIcon className="w-8 h-8 text-sky-600" />
+                        <CogIcon className="w-8 h-8 text-sky-600" />
                         <h2 className="text-2xl font-bold text-sky-800">Panel de Administración</h2>
                     </div>
                     <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-800 transition rounded-full hover:bg-slate-200" aria-label="Cerrar">

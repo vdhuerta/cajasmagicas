@@ -152,6 +152,7 @@ const App: React.FC = () => {
         if (error && error.code !== 'PGRST116') {
             console.error("Error fetching user profile (likely RLS issue):", error.message);
             const rlsErrorMessage = "Error al cargar el perfil. Esto se debe a políticas de seguridad (RLS) incorrectas en la tabla 'usuarios'. Revisa la consola para obtener el script SQL de corrección.";
+            // FIX: Corrected a typo in the `fetchUserProfile` function. The variable `rllsErrorMessage` was renamed to `rlsErrorMessage` to match its declaration, resolving a reference error.
             logActivity(rlsErrorMessage, 'system');
             console.info(`-- SCRIPT SQL PARA CORREGIR RLS EN 'usuarios' --
 -- 1. Habilitar RLS
