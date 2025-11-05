@@ -1,17 +1,11 @@
 // services/adminService.ts
 import { UserProfile } from '../types';
 
-// Se construye la URL absoluta para la función de Netlify en tiempo de ejecución.
-// Esto evita problemas de enrutamiento con las reglas de redirección para SPAs en Netlify,
-// que pueden devolver index.html en lugar de la respuesta de la función.
-const getAbsoluteFunctionUrl = (functionName: string): string => {
-    return `${window.location.origin}/.netlify/functions/${functionName}`;
-};
-
 const callAdminFunction = async (action: string, payload?: any) => {
-    // FIX: Se utiliza la URL absoluta para asegurar que la llamada llegue a la función
-    // y no sea interceptada por las reglas de enrutamiento de la SPA de Netlify.
-    const functionUrl = getAbsoluteFunctionUrl('admin-handler'); 
+    // Se utiliza una ruta relativa para llamar a la función de Netlify.
+    // Esto es más robusto y evita problemas con configuraciones de redirección
+    // para SPAs que pueden interceptar rutas absolutas.
+    const functionUrl = '/.netlify/functions/admin-handler'; 
     
     try {
         const response = await fetch(functionUrl, {

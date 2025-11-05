@@ -1,9 +1,5 @@
 // services/emailService.ts
 
-const getAbsoluteFunctionUrl = (functionName: string): string => {
-    return `${window.location.origin}/.netlify/functions/${functionName}`;
-};
-
 interface EmailPayload {
     to: string;
     subject: string;
@@ -11,7 +7,7 @@ interface EmailPayload {
 }
 
 export const sendEmail = async ({ to, subject, body }: EmailPayload): Promise<{ message: string }> => {
-    const functionUrl = getAbsoluteFunctionUrl('send-email');
+    const functionUrl = '/.netlify/functions/send-email';
 
     try {
         const response = await fetch(functionUrl, {
@@ -19,6 +15,15 @@ export const sendEmail = async ({ to, subject, body }: EmailPayload): Promise<{ 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ to, subject, body }),
         });
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const responseText = await response.text();
+            if (responseText.trim().startsWith('<!DOCTYPE')) {
+                 throw new Error(`Error de enrutamiento del servidor: Se recibió una página HTML en lugar de datos JSON. Verifica la configuración de redirección en Netlify.`);
+            }
+            throw new Error('La respuesta del servidor no es un JSON válido.');
+        }
 
         const data = await response.json();
 

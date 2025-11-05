@@ -1,12 +1,6 @@
 // services/geminiService.ts
 import { ClassificationRule } from "../types";
 
-// Se construye la URL absoluta para la función de Netlify en tiempo de ejecución.
-// Esto evita problemas de enrutamiento con las reglas de redirección para SPAs en Netlify.
-const getAbsoluteFunctionUrl = (functionName: string): string => {
-    return `${window.location.origin}/.netlify/functions/${functionName}`;
-};
-
 /**
  * Calls a secure Netlify serverless function to get a creative name for a magic box.
  * This avoids exposing the Gemini API key on the client.
@@ -14,9 +8,10 @@ const getAbsoluteFunctionUrl = (functionName: string): string => {
  * @returns A promise that resolves to a creative name string.
  */
 export const getMagicBoxName = async (rule: ClassificationRule): Promise<string> => {
-    // FIX: Se utiliza la URL absoluta para asegurar que la llamada llegue a la función
-    // y no sea interceptada por las reglas de enrutamiento de la SPA de Netlify.
-    const functionUrl = getAbsoluteFunctionUrl('gemini');
+    // Se utiliza una ruta relativa para llamar a la función de Netlify.
+    // Esto es más robusto y evita problemas con configuraciones de redirección
+    // para SPAs que pueden interceptar rutas.
+    const functionUrl = '/.netlify/functions/gemini';
     
     try {
         const response = await fetch(functionUrl, {
