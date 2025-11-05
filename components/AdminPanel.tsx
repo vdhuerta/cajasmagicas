@@ -88,9 +88,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         if (Object.keys(changes).length > 0) {
             setPendingChanges(prev => ({
                 ...prev,
-                // FIX: Corrected a potential error where `prev[updatedUser.id]` could be undefined,
-                // which is invalid to spread. Provided an empty object fallback `|| {}` to ensure the spread
-                // operator is always applied to an object.
+                // Fix: Provide a fallback empty object for the spread operator to prevent an error
+                // when prev[updatedUser.id] is undefined.
                 [updatedUser.id]: { ...(prev[updatedUser.id] || {}), ...changes }
             }));
         }
@@ -102,7 +101,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         setError('');
         setSuccessMessage('');
         try {
-            const updates = Object.entries(pendingChanges).map(([id, data]) => ({ id, ...data }));
+            // Fix: Added a fallback for `data` to ensure it's always an object before spreading, preventing a potential runtime error.
+            const updates = Object.entries(pendingChanges).map(([id, data]) => ({ id, ...(data || {}) }));
             await adminService.batchUpdateUsers(updates);
             setPendingChanges({});
             setSuccessMessage('¡Todos los cambios han sido guardados con éxito!');

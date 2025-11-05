@@ -68,20 +68,34 @@ const handler: Handler = async (event) => {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'Payload must be a non-empty array of updates.' }) };
         }
 
-        const updatePromises = updates.map(({ id, ...changes }) =>
-            supabaseAdmin
+        // Usar Promise.all para ejecutar actualizaciones en paralelo para un mejor rendimiento.
+        // Esto es mucho más rápido que un bucle secuencial y evita timeouts del servidor.
+        const updatePromises = updates.map(async (update) => {
+            const { id, ...changes } = update;
+            
+            const { data, error } = await supabaseAdmin
                 .from('usuarios')
                 .update(changes)
                 .eq('id', id)
-        );
-
-        const results = await Promise.all(updatePromises);
+                .select(); // .select() asegura que la operación esperó y podemos verificar el resultado.
+            
+            if (error) {
+                // Registrar el error específico y lanzarlo para que Promise.all falle.
+                console.error(`La actualización en lote falló para el usuario ${id}:`, error.message);
+                throw new Error(`La actualización para el usuario con ID ${id} falló: ${error.message}`);
+            }
+            
+            if (!data || data.length === 0) {
+                // Este caso también es un error, ya que no se encontró el usuario.
+                console.error(`Usuario con ID ${id} no encontrado para actualizar.`);
+                throw new Error(`No se encontró el usuario con ID ${id} para actualizar.`);
+            }
+        });
         
-        const errors = results.filter(res => res.error);
-        if (errors.length > 0) {
-            console.error('Batch update failed for some users:', errors.map(e => e.error?.message));
-            throw new Error(`Fallaron ${errors.length} de ${updates.length} actualizaciones. Revisa las políticas de RLS.`);
-        }
+        // Esperar a que todas las actualizaciones en paralelo se completen.
+        // Si alguna promesa en updatePromises falla, Promise.all fallará,
+        // y el error será capturado por el bloque try/catch exterior.
+        await Promise.all(updatePromises);
 
         return { statusCode: 200, headers, body: JSON.stringify({ message: 'Todos los usuarios fueron actualizados con éxito.' }) };
       }

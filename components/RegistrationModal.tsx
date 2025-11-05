@@ -90,7 +90,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
                 throw new Error('Nombres y apellidos son requeridos para crear una cuenta.');
             }
             
-            const { data, error: signUpError } = await supabase.auth.signUp({
+            const { error: signUpError } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
@@ -107,35 +107,11 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
                 throw signUpError;
             }
             
-            if (data.user && data.user.identities && data.user.identities.length === 0) {
-                throw new Error('User already registered');
-            }
+            // La inserción del perfil de usuario ahora es manejada automáticamente
+            // por un trigger en la base de datos de Supabase (handle_new_user).
+            // No se necesita código de inserción manual aquí.
 
-            // After successful sign-up in auth, create the user profile in the public table.
-            if (data.user) {
-                const { error: insertError } = await supabase
-                    .from('usuarios')
-                    .insert({
-                        id: data.user.id,
-                        email: data.user.email,
-                        firstName: firstName.trim(),
-                        lastName: lastName.trim(),
-                        career: career,
-                        section: section,
-                        score: 0,
-                        unlockedAchievements: {},
-                    });
-
-                if (insertError) {
-                    console.error("Error creating user profile in public.usuarios:", insertError);
-                    // This error is critical, as it leaves the user in an inconsistent state.
-                    throw new Error("No se pudo crear el perfil de usuario. Por favor, intenta iniciar sesión o contacta a soporte.");
-                }
-            } else {
-                 throw new Error("No se pudo obtener la información del usuario después del registro.");
-            }
-
-            logActivity(`Nueva cuenta creada para ${firstName}. ¡Bienvenido!`, 'system');
+            logActivity(`Nueva cuenta creada para ${firstName}. ¡Bienvenido! Revisa tu correo para confirmar la cuenta.`, 'system');
             isSuccess = true;
         }
     } catch (err: any) {
