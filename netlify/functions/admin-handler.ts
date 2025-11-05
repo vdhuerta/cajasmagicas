@@ -44,10 +44,17 @@ const handler: Handler = async (event) => {
           .from('usuarios')
           .update(updates)
           .eq('id', id)
-          .select()
-          .single();
+          .select();
+        
         if (error) throw error;
-        return { statusCode: 200, body: JSON.stringify(data) };
+
+        if (!data || data.length !== 1) {
+            const message = `La operación de actualización no afectó a una única fila. Filas afectadas: ${data ? data.length : 0}. Esto puede deberse a políticas de seguridad (RLS) incorrectas.`;
+            console.error('Update operation did not return a single row for user ID:', id, 'Returned:', data);
+            return { statusCode: 500, body: JSON.stringify({ error: message }) };
+        }
+
+        return { statusCode: 200, body: JSON.stringify(data[0]) };
       }
 
       case 'DELETE_USER': {

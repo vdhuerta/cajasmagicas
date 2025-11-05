@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { UserProfile } from '../types';
 import * as adminService from '../services/adminService';
 import AdminPasswordModal from './AdminPasswordModal';
@@ -11,6 +11,10 @@ import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
 import PencilIcon from './icons/PencilIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { supabase } from '../services/supabase';
+import EnvelopeIcon from './icons/EnvelopeIcon';
+
+const EmailUserModal = lazy(() => import('./EmailUserModal'));
+
 
 interface AdminPanelProps {
     onClose: () => void;
@@ -26,6 +30,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     const [detailsModalUser, setDetailsModalUser] = useState<UserProfile | null>(null);
     const [editModalUser, setEditModalUser] = useState<UserProfile | null>(null);
     const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserProfile | null>(null);
+    const [emailModalUser, setEmailModalUser] = useState<UserProfile | null>(null);
+
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -137,6 +143,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                                         <p className="text-sm text-sky-600 font-semibold">{user.score.toLocaleString('es-ES')} puntos</p>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        <button onClick={() => setEmailModalUser(user)} className="p-2 text-slate-500 hover:text-green-700 hover:bg-green-100 rounded-md transition" title="Enviar Mensaje"><EnvelopeIcon className="w-5 h-5" /></button>
                                         <button onClick={() => setDetailsModalUser(user)} className="p-2 text-slate-500 hover:text-sky-700 hover:bg-sky-100 rounded-md transition" title="Ver Detalles"><MagnifyingGlassIcon className="w-5 h-5" /></button>
                                         <button onClick={() => setEditModalUser(user)} className="p-2 text-slate-500 hover:text-amber-700 hover:bg-amber-100 rounded-md transition" title="Editar Usuario"><PencilIcon className="w-5 h-5" /></button>
                                         <button onClick={() => setDeleteConfirmUser(user)} className="p-2 text-slate-500 hover:text-red-700 hover:bg-red-100 rounded-md transition" title="Eliminar Usuario"><TrashIcon className="w-5 h-5" /></button>
@@ -150,7 +157,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
             
             {detailsModalUser && <UserDetailsModal user={detailsModalUser} onClose={() => setDetailsModalUser(null)} />}
             {editModalUser && <EditUserModal user={editModalUser} onClose={() => setEditModalUser(null)} onUserUpdated={handleUserUpdated} />}
-            
+            {emailModalUser && <Suspense fallback={null}><EmailUserModal user={emailModalUser} onClose={() => setEmailModalUser(null)} /></Suspense>}
+
             {deleteConfirmUser && (
                 <div className="fixed inset-0 bg-slate-800 bg-opacity-70 flex items-center justify-center z-[60]">
                     <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-sm">
