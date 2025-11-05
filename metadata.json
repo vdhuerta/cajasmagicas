@@ -1,0 +1,5 @@
+{
+  "name": "Cajas Mágicas",
+  "description": "Un juego didáctico para estudiantes de preescolar para aprender clasificación usando los bloques lógicos. Los jugadores arrastran y sueltan formas en 'cajas mágicas' basadas en diferentes criterios como color, forma y tamaño.",
+  "requestFramePermissions": []
+}
