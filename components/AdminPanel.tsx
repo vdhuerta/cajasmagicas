@@ -43,24 +43,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         setIsLoading(true);
         setError('');
         try {
-            // Replaced adminService call with direct Supabase client call, as requested.
-            // This mirrors the logic used in the Ranking feature.
-            if (!supabase) {
-                throw new Error("Cliente de Supabase no está disponible.");
-            }
-            
-            const { data, error: fetchError } = await supabase
-                .from('usuarios')
-                .select('*')
-                .order('score', { ascending: false });
-
-            if (fetchError) {
-                throw fetchError;
-            }
-            
-            setUsers(data as UserProfile[]);
+            const data = await adminService.getAllUsers();
+            setUsers(data);
         } catch (err: any) {
-            setError(`Error al cargar los usuarios: ${err.message}. Revisa las políticas de seguridad (RLS) de la tabla 'usuarios'.`);
+            setError(`Error al cargar los usuarios: ${err.message}`);
             console.error(err);
         } finally {
             setIsLoading(false);

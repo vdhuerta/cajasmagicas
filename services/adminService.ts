@@ -37,6 +37,10 @@ const callAdminFunction = async (action: string, payload?: any) => {
     }
 };
 
+export const getAllUsers = (): Promise<UserProfile[]> => {
+    return callAdminFunction('GET_ALL_USERS');
+};
+
 export const updateUser = (id: string, updates: Partial<Omit<UserProfile, 'id' | 'email'>>): Promise<UserProfile> => {
     return callAdminFunction('UPDATE_USER', { id, ...updates });
 };
