@@ -1,7 +1,8 @@
 
+
 import React, { useState } from 'react';
 import { CloseIcon } from './icons/CloseIcon';
-import { CareerOption, ActivityLogType } from '../types';
+import { CareerOption, ActivityLogType, SectionOption } from '../types';
 import { supabase } from '../services/supabase';
 
 
@@ -15,6 +16,12 @@ const careerOptions: CareerOption[] = [
     'Educación Parvularia',
     'Pedagogía en Educación Diferencial',
     'Pedagogía en Educación Básica'
+];
+
+const sectionOptions: SectionOption[] = [
+    'Sección 1',
+    'Sección 2',
+    'Sección 3'
 ];
 
 // Función para traducir los errores comunes de Supabase al español.
@@ -46,6 +53,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [career, setCareer] = useState<CareerOption>(careerOptions[0]);
+  const [section, setSection] = useState<SectionOption>(sectionOptions[0]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -90,6 +98,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
                         firstName: firstName.trim(),
                         lastName: lastName.trim(),
                         career: career,
+                        section: section,
                     }
                 }
             });
@@ -112,6 +121,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
                         firstName: firstName.trim(),
                         lastName: lastName.trim(),
                         career: career,
+                        section: section,
                         score: 0,
                         unlockedAchievements: {},
                     });
@@ -177,12 +187,20 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ onClose, logActiv
             <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500" placeholder="Mínimo 6 caracteres" required />
           </div>
           {!isLogin && (
-            <div>
-              <label htmlFor="career" className="block text-sm font-medium text-slate-700">Carrera</label>
-              <select id="career" value={career} onChange={(e) => setCareer(e.target.value as CareerOption)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500">
-                {careerOptions.map(option => (<option key={option} value={option}>{option}</option>))}
-              </select>
-            </div>
+            <>
+                <div>
+                  <label htmlFor="career" className="block text-sm font-medium text-slate-700">Carrera</label>
+                  <select id="career" value={career} onChange={(e) => setCareer(e.target.value as CareerOption)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500">
+                    {careerOptions.map(option => (<option key={option} value={option}>{option}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="section" className="block text-sm font-medium text-slate-700">Sección</label>
+                  <select id="section" value={section} onChange={(e) => setSection(e.target.value as SectionOption)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500">
+                    {sectionOptions.map(option => (<option key={option} value={option}>{option}</option>))}
+                  </select>
+                </div>
+            </>
           )}
           {error && <p className="text-sm text-red-600 text-center bg-red-50 p-3 rounded-md">{error}</p>}
           <div>

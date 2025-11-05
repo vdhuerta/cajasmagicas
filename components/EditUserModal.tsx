@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserProfile, CareerOption } from '../types';
+import { UserProfile, CareerOption, SectionOption } from '../types';
 import { updateUser } from '../services/adminService';
 import { CloseIcon } from './icons/CloseIcon';
 
@@ -15,11 +15,18 @@ const careerOptions: CareerOption[] = [
     'Pedagogía en Educación Básica'
 ];
 
+const sectionOptions: SectionOption[] = [
+    'Sección 1',
+    'Sección 2',
+    'Sección 3'
+];
+
 const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onUserUpdated }) => {
     const [formData, setFormData] = useState({
         firstName: user.firstName,
         lastName: user.lastName,
         career: user.career,
+        section: user.section || 'Sección 1',
         score: user.score,
     });
     const [isLoading, setIsLoading] = useState(false);
@@ -80,9 +87,15 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onUserUpda
                                 </select>
                             </div>
                             <div>
-                                <label htmlFor="score" className="block text-sm font-medium text-slate-700">Puntaje</label>
-                                <input type="number" id="score" name="score" value={formData.score} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500" />
+                                <label htmlFor="section" className="block text-sm font-medium text-slate-700">Sección</label>
+                                <select id="section" name="section" value={formData.section} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500">
+                                    {sectionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                </select>
                             </div>
+                        </div>
+                         <div>
+                            <label htmlFor="score" className="block text-sm font-medium text-slate-700">Puntaje</label>
+                            <input type="number" id="score" name="score" value={formData.score} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500" />
                         </div>
                         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
                     </div>

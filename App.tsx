@@ -1,7 +1,7 @@
 // FIX: Corrected the React import. The alias 'a' was invalid.
 import React from 'react';
 import { speakText } from './utils/tts';
-import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType, PerformanceLog, SeriationChallengeType } from './types';
+import { GameLevel, ClassificationRule, Notification, Achievement, ActivityLogEntry, ActivityLogType, InventoryGameDifficulty, UserProfile, DienesBlockType, PerformanceLog, SeriationChallengeType, SectionOption } from './types';
 // FIX: Corrected typo from ALL_ACHIEVEMENTS to ALL_ACHIEVEMENTS.
 import { GAME_LEVELS, TRANSLATIONS, ALL_ACHIEVEMENTS } from './constants';
 import { HamburgerMenuIcon } from './components/icons/HamburgerMenuIcon';
@@ -168,6 +168,7 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
                 firstName: session.user.user_metadata?.firstName || 'Usuario',
                 lastName: session.user.user_metadata?.lastName || '',
                 career: session.user.user_metadata?.career || 'Educación Parvularia',
+                section: session.user.user_metadata?.section || 'Sección 1',
                 score: 0,
                 unlockedAchievements: {},
             });
@@ -179,6 +180,7 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
                 firstName: dbProfile.firstName || 'Explorador',
                 lastName: dbProfile.lastName || '',
                 career: dbProfile.career || 'Educación Parvularia',
+                section: dbProfile.section || 'Sección 1',
                 score: dbProfile.score ?? 0,
                 unlockedAchievements: dbProfile.unlockedAchievements || {},
             });
@@ -190,6 +192,7 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
                 firstName: session.user.user_metadata?.firstName || 'Explorador',
                 lastName: session.user.user_metadata?.lastName || '',
                 career: session.user.user_metadata?.career || 'Educación Parvularia',
+                section: session.user.user_metadata?.section || 'Sección 1',
                 score: 0,
                 unlockedAchievements: {},
             });

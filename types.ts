@@ -103,12 +103,15 @@ export interface ActivityLogEntry {
 
 export type CareerOption = 'Educación Parvularia' | 'Pedagogía en Educación Diferencial' | 'Pedagogía en Educación Básica';
 
+export type SectionOption = 'Sección 1' | 'Sección 2' | 'Sección 3';
+
 export interface UserProfile {
   id: string; // From supabase.auth.users
   email: string;
   firstName: string;
   lastName: string;
   career: CareerOption;
+  section: SectionOption;
   score: number;
   unlockedAchievements: Record<string, boolean>;
   // completed_levels is now deprecated and will be calculated from performance_logs
