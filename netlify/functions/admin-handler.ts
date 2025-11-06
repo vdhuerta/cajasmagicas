@@ -69,39 +69,23 @@ const handler: Handler = async (event) => {
         }
 
         try {
-            const updatePromises = updates.map(async (update) => {
-                const { id, ...changes } = update;
-                if (Object.keys(changes).length === 0) {
-                    return; // Skip if no actual changes
-                }
-                
-                // Use { count: 'exact' } to get the number of affected rows.
-                // This is more direct than .select() and only requires UPDATE RLS permissions.
-                const { error, count } = await supabaseAdmin
-                    .from('usuarios')
-                    .update(changes, { count: 'exact' })
-                    .eq('id', id);
+            // NEW ARCHITECTURE: Use a single 'upsert' operation for atomic batch updates.
+            // This is far more robust and efficient than looping through individual updates.
+            const { error } = await supabaseAdmin
+                .from('usuarios')
+                .upsert(updates);
 
-                if (error) {
-                    // Forward any database-level errors.
-                    throw new Error(`Error de base de datos al actualizar usuario ${id}: ${error.message}`);
-                }
-                
-                if (count === 0) {
-                    // This is a critical check. If no rows were updated, it means the user
-                    // was not found by the WHERE clause (eq('id', id)), likely due to RLS.
-                    throw new Error(`No se encontró el usuario con ID ${id} para actualizar (0 filas afectadas). Verifica las políticas de seguridad (RLS) para la operación UPDATE.`);
-                }
-            });
-            
-            await Promise.all(updatePromises);
+            if (error) {
+                // If the single operation fails, throw the error to be caught below.
+                throw new Error(`Error de base de datos durante la actualización en lote: ${error.message}`);
+            }
 
             return { statusCode: 200, headers, body: JSON.stringify({ message: 'Todos los usuarios fueron actualizados con éxito.' }) };
 
         } catch (err: any) {
-            console.error('Error during batch update:', err);
-            const statusCode = err.message.includes('No se encontró') ? 404 : 500;
-            return { statusCode, headers, body: JSON.stringify({ error: err.message }) };
+            console.error('Error during batch update (upsert):', err);
+            // Return a generic 500 for any failure in this critical operation.
+            return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
         }
       }
 
