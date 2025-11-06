@@ -7,7 +7,6 @@ import EditUserModal from './EditUserModal';
 import { CloseIcon } from './icons/CloseIcon';
 import { CogIcon } from './icons/CogIcon';
 import { MagnifyingGlassIcon } from './icons/MagnifyingGlassIcon';
-// FIX: Changed named import to default import for PencilIcon.
 import PencilIcon from './icons/PencilIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { supabase } from '../services/supabase';
@@ -88,9 +87,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         if (Object.keys(changes).length > 0) {
             setPendingChanges(prev => ({
                 ...prev,
-                // Fix: Provide a fallback empty object for the spread operator to prevent an error
-                // when prev[updatedUser.id] is undefined.
-                // FIX: Spread types may only be created from object types.
+                // FIX: When merging pending changes, `prev[updatedUser.id]` can be `undefined` if there are no
+                // previous changes for this user. Spreading `undefined` is not allowed, so a fallback
+                // to an empty object `{}` is provided to prevent the "Spread types may only be created from object types" error.
                 [updatedUser.id]: { ...(prev[updatedUser.id] || {}), ...changes }
             }));
         }
@@ -102,8 +101,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         setError('');
         setSuccessMessage('');
         try {
-            // Fix: Added a fallback for `data` to ensure it's always an object before spreading, preventing a potential runtime error.
-            // FIX: Spread types may only be created from object types.
             const updates = Object.entries(pendingChanges).map(([id, data]) => ({ id, ...(data || {}) }));
             await adminService.batchUpdateUsers(updates);
             setPendingChanges({});

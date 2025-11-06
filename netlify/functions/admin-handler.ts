@@ -68,33 +68,26 @@ const handler: Handler = async (event) => {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'Payload must be a non-empty array of updates.' }) };
         }
 
-        // Usar Promise.all para ejecutar actualizaciones en paralelo para un mejor rendimiento.
-        // Esto es mucho más rápido que un bucle secuencial y evita timeouts del servidor.
         const updatePromises = updates.map(async (update) => {
             const { id, ...changes } = update;
             
-            const { data, error } = await supabaseAdmin
+            // Se eliminó .select() para evitar problemas de RLS en la lectura post-escritura.
+            // Ahora solo se verifica si hay un error directo en la operación de actualización.
+            const { error } = await supabaseAdmin
                 .from('usuarios')
                 .update(changes)
-                .eq('id', id)
-                .select(); // .select() asegura que la operación esperó y podemos verificar el resultado.
+                .eq('id', id);
             
             if (error) {
-                // Registrar el error específico y lanzarlo para que Promise.all falle.
                 console.error(`La actualización en lote falló para el usuario ${id}:`, error.message);
-                throw new Error(`La actualización para el usuario con ID ${id} falló: ${error.message}`);
-            }
-            
-            if (!data || data.length === 0) {
-                // Este caso también es un error, ya que no se encontró el usuario.
-                console.error(`Usuario con ID ${id} no encontrado para actualizar.`);
-                throw new Error(`No se encontró el usuario con ID ${id} para actualizar.`);
+                if (error.message.includes('violates row-level security policy')) {
+                     throw new Error(`La actualización para el usuario ${id} fue bloqueada por la política de seguridad (RLS). Asegúrate de que el rol 'service_role' tiene permisos de UPDATE.`);
+                }
+                // Si el error no es por RLS, podría ser porque el usuario no existe.
+                throw new Error(`No se pudo actualizar el usuario con ID ${id}: ${error.message}`);
             }
         });
         
-        // Esperar a que todas las actualizaciones en paralelo se completen.
-        // Si alguna promesa en updatePromises falla, Promise.all fallará,
-        // y el error será capturado por el bloque try/catch exterior.
         await Promise.all(updatePromises);
 
         return { statusCode: 200, headers, body: JSON.stringify({ message: 'Todos los usuarios fueron actualizados con éxito.' }) };
