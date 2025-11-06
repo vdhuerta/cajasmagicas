@@ -68,30 +68,29 @@ const handler: Handler = async (event) => {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'Payload must be a non-empty array of updates.' }) };
         }
 
-        // Use Promise.all with try/catch for better error handling.
         try {
             const updatePromises = updates.map(async (update) => {
                 const { id, ...changes } = update;
                 if (Object.keys(changes).length === 0) {
-                    // Skip updates with no changes
-                    return;
+                    return; // Skip if no actual changes
                 }
                 
-                const { data, error } = await supabaseAdmin
+                // Use { count: 'exact' } to get the number of affected rows.
+                // This is more direct than .select() and only requires UPDATE RLS permissions.
+                const { error, count } = await supabaseAdmin
                     .from('usuarios')
-                    .update(changes)
-                    .eq('id', id)
-                    .select('id'); // Select only the ID to confirm the update
+                    .update(changes, { count: 'exact' })
+                    .eq('id', id);
 
                 if (error) {
-                    // If Supabase returns an error, throw it.
-                    throw new Error(`Error al actualizar el usuario ${id}: ${error.message}`);
+                    // Forward any database-level errors.
+                    throw new Error(`Error de base de datos al actualizar usuario ${id}: ${error.message}`);
                 }
                 
-                if (!data || data.length === 0) {
-                    // If Supabase returns no data and no error, it means the row wasn't found.
-                    // This is the most likely cause of the silent failure.
-                    throw new Error(`No se encontró el usuario con ID ${id} para actualizar.`);
+                if (count === 0) {
+                    // This is a critical check. If no rows were updated, it means the user
+                    // was not found by the WHERE clause (eq('id', id)), likely due to RLS.
+                    throw new Error(`No se encontró el usuario con ID ${id} para actualizar (0 filas afectadas). Verifica las políticas de seguridad (RLS) para la operación UPDATE.`);
                 }
             });
             
@@ -101,7 +100,6 @@ const handler: Handler = async (event) => {
 
         } catch (err: any) {
             console.error('Error during batch update:', err);
-            // Return a more specific status code if a user is not found.
             const statusCode = err.message.includes('No se encontró') ? 404 : 500;
             return { statusCode, headers, body: JSON.stringify({ error: err.message }) };
         }
