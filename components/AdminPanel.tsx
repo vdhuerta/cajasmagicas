@@ -90,6 +90,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 ...prev,
                 // Fix: Provide a fallback empty object for the spread operator to prevent an error
                 // when prev[updatedUser.id] is undefined.
+                // FIX: Spread types may only be created from object types.
                 [updatedUser.id]: { ...(prev[updatedUser.id] || {}), ...changes }
             }));
         }
@@ -102,6 +103,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         setSuccessMessage('');
         try {
             // Fix: Added a fallback for `data` to ensure it's always an object before spreading, preventing a potential runtime error.
+            // FIX: Spread types may only be created from object types.
             const updates = Object.entries(pendingChanges).map(([id, data]) => ({ id, ...(data || {}) }));
             await adminService.batchUpdateUsers(updates);
             setPendingChanges({});

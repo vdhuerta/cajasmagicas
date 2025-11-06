@@ -1,5 +1,5 @@
 // services/adminService.ts
-import { UserProfile } from '../types';
+import { UserProfile, PerformanceLog } from '../types';
 
 const callAdminFunction = async (action: string, payload?: any) => {
     // Se utiliza una ruta relativa para llamar a la función de Netlify.
@@ -35,6 +35,10 @@ const callAdminFunction = async (action: string, payload?: any) => {
         console.error(`Error en el servicio de admin en la acción '${action}':`, error);
         throw error;
     }
+};
+
+export const getUserLogs = (userId: string): Promise<PerformanceLog[]> => {
+    return callAdminFunction('GET_USER_LOGS', { userId });
 };
 
 export const batchUpdateUsers = (updates: { id: string; [key: string]: any }[]): Promise<{ message: string }> => {
