@@ -87,9 +87,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         if (Object.keys(changes).length > 0) {
             setPendingChanges(prev => ({
                 ...prev,
-                // FIX: When merging pending changes, `prev[updatedUser.id]` can be `undefined` if there are no
-                // previous changes for this user. Spreading `undefined` is not allowed, so a fallback
-                // to an empty object `{}` is provided to prevent the "Spread types may only be created from object types" error.
                 [updatedUser.id]: { ...(prev[updatedUser.id] || {}), ...changes }
             }));
         }
@@ -101,13 +98,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         setError('');
         setSuccessMessage('');
         try {
-            const updates = Object.entries(pendingChanges).map(([id, data]) => ({ id, ...(data || {}) }));
+            // FIX: Replaced object spread with Object.assign to resolve a "Spread types may only be created from object types" error.
+            // This can happen with complex generic types and Object.assign is a more robust alternative in such cases.
+            const updates = Object.entries(pendingChanges).map(([id, data]) => (Object.assign({ id }, data)));
             await adminService.batchUpdateUsers(updates);
             setPendingChanges({});
             setSuccessMessage('¡Todos los cambios han sido guardados con éxito!');
-            setTimeout(() => setSuccessMessage(''), 3000); // Clear message after 3 seconds
+            
+            // Refetch users to show persisted data and provide visual confirmation
+            await fetchUsers(); 
+            
+            setTimeout(() => setSuccessMessage(''), 3000);
         } catch (err: any) {
             setError(`Error al guardar los cambios: ${err.message}`);
+            // If saving fails, it's good practice to refetch to revert optimistic updates
+            fetchUsers(); 
         } finally {
             setIsSaving(false);
         }

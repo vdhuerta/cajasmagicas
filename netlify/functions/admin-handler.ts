@@ -68,29 +68,43 @@ const handler: Handler = async (event) => {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'Payload must be a non-empty array of updates.' }) };
         }
 
-        const updatePromises = updates.map(async (update) => {
-            const { id, ...changes } = update;
-            
-            // Se eliminó .select() para evitar problemas de RLS en la lectura post-escritura.
-            // Ahora solo se verifica si hay un error directo en la operación de actualización.
-            const { error } = await supabaseAdmin
-                .from('usuarios')
-                .update(changes)
-                .eq('id', id);
-            
-            if (error) {
-                console.error(`La actualización en lote falló para el usuario ${id}:`, error.message);
-                if (error.message.includes('violates row-level security policy')) {
-                     throw new Error(`La actualización para el usuario ${id} fue bloqueada por la política de seguridad (RLS). Asegúrate de que el rol 'service_role' tiene permisos de UPDATE.`);
+        // Use Promise.all with try/catch for better error handling.
+        try {
+            const updatePromises = updates.map(async (update) => {
+                const { id, ...changes } = update;
+                if (Object.keys(changes).length === 0) {
+                    // Skip updates with no changes
+                    return;
                 }
-                // Si el error no es por RLS, podría ser porque el usuario no existe.
-                throw new Error(`No se pudo actualizar el usuario con ID ${id}: ${error.message}`);
-            }
-        });
-        
-        await Promise.all(updatePromises);
+                
+                const { data, error } = await supabaseAdmin
+                    .from('usuarios')
+                    .update(changes)
+                    .eq('id', id)
+                    .select('id'); // Select only the ID to confirm the update
 
-        return { statusCode: 200, headers, body: JSON.stringify({ message: 'Todos los usuarios fueron actualizados con éxito.' }) };
+                if (error) {
+                    // If Supabase returns an error, throw it.
+                    throw new Error(`Error al actualizar el usuario ${id}: ${error.message}`);
+                }
+                
+                if (!data || data.length === 0) {
+                    // If Supabase returns no data and no error, it means the row wasn't found.
+                    // This is the most likely cause of the silent failure.
+                    throw new Error(`No se encontró el usuario con ID ${id} para actualizar.`);
+                }
+            });
+            
+            await Promise.all(updatePromises);
+
+            return { statusCode: 200, headers, body: JSON.stringify({ message: 'Todos los usuarios fueron actualizados con éxito.' }) };
+
+        } catch (err: any) {
+            console.error('Error during batch update:', err);
+            // Return a more specific status code if a user is not found.
+            const statusCode = err.message.includes('No se encontró') ? 404 : 500;
+            return { statusCode, headers, body: JSON.stringify({ error: err.message }) };
+        }
       }
 
       case 'DELETE_USER': {
