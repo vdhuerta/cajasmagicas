@@ -45,21 +45,35 @@ const handler: Handler = async (event) => {
       case 'UPDATE_USER': {
         const { id, ...updates } = payload;
         if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'User ID is required for updates.' }) };
-        const { data, error } = await supabaseAdmin
+        
+        // --- NEW RLS-COMPATIBLE LOGIC ---
+        // Step 1: Perform the update and robustly check the row count.
+        // The service_role key bypasses RLS for writes.
+        const { error: updateError, count } = await supabaseAdmin
           .from('usuarios')
           .update(updates)
-          .eq('id', id)
-          .select();
+          .eq('id', id);
         
-        if (error) throw error;
+        if (updateError) throw updateError;
 
-        if (!data || data.length !== 1) {
-            const message = `La operación de actualización no afectó a una única fila. Filas afectadas: ${data ? data.length : 0}. Esto puede deberse a políticas de seguridad (RLS) incorrectas.`;
-            console.error('Update operation did not return a single row for user ID:', id, 'Returned:', data);
+        // The `count` property is the reliable way to check for success, as it's not affected by RLS on SELECT.
+        if (count !== 1) {
+            const message = `La operación de actualización no afectó a la fila esperada. Filas afectadas: ${count}. Esto puede deberse a que el ID de usuario no se encontró o a un problema de permisos inesperado.`;
+            console.error('Update operation affected an unexpected number of rows for user ID:', id, 'Count:', count);
             return { statusCode: 500, headers, body: JSON.stringify({ error: message }) };
         }
 
-        return { statusCode: 200, headers, body: JSON.stringify(data[0]) };
+        // Step 2: If the update was successful (count is 1), fetch the complete, updated row to return it.
+        // This separate select query is also performed as the admin and will succeed.
+        const { data: updatedUser, error: selectError } = await supabaseAdmin
+            .from('usuarios')
+            .select('*')
+            .eq('id', id)
+            .single(); // Use .single() to ensure we get exactly one record back.
+
+        if (selectError) throw selectError;
+
+        return { statusCode: 200, headers, body: JSON.stringify(updatedUser) };
       }
 
       case 'BATCH_UPDATE_USERS': {
@@ -68,9 +82,6 @@ const handler: Handler = async (event) => {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'Payload must be a non-empty array of updates.' }) };
         }
 
-        // --- NEW ARCHITECTURE: Concurrent Individual Updates ---
-        // Instead of a single 'upsert', we run multiple 'update' calls in parallel.
-        // This provides more granular error feedback and is more resilient.
         const updatePromises = updates.map(userUpdate => {
             const { id, ...updateData } = userUpdate;
             return supabaseAdmin
@@ -81,12 +92,9 @@ const handler: Handler = async (event) => {
 
         try {
             const results = await Promise.all(updatePromises);
-            
-            // After all promises resolve, check each result for an error.
             const failedUpdates = results.filter(res => res.error);
 
             if (failedUpdates.length > 0) {
-                // If any update failed, collect the error messages and report them.
                 const errorMessages = failedUpdates.map(res => res.error!.message).join('; ');
                 console.error('Algunas actualizaciones fallaron en el lote:', errorMessages);
                 throw new Error(`Algunas actualizaciones fallaron: ${errorMessages}`);
@@ -104,11 +112,9 @@ const handler: Handler = async (event) => {
         const { userId } = payload;
         if (!userId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'User ID is required.' }) };
         
-        // 1. Delete performance logs. The public.usuarios table should cascade delete via foreign key from auth.users.
         const { error: logError } = await supabaseAdmin.from('performance_logs').delete().eq('user_id', userId);
         if (logError) console.error(`Non-critical: Could not delete logs for user ${userId}:`, logError.message);
         
-        // 2. Delete the user from Supabase Auth. This will cascade and delete the corresponding row in `public.usuarios`.
         const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
         if (authError) throw authError;
 
