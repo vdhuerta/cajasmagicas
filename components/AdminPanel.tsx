@@ -47,10 +47,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 throw new Error("Cliente de Supabase no está disponible.");
             }
             
+            // Cargar usuarios sin un orden específico para asegurar consistencia
+            // en la obtención de IDs, según la solicitud del usuario.
             const { data, error: fetchError } = await supabase
                 .from('usuarios')
-                .select('*')
-                .order('score', { ascending: false });
+                .select('*');
 
             if (fetchError) {
                 throw fetchError;
