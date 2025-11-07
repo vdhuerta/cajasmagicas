@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { UserProfile, CareerOption, SectionOption } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
+import * as adminService from '../services/adminService';
 
 interface EditUserModalProps {
     user: UserProfile;
     onClose: () => void;
-    onUserUpdated: (updatedUser: UserProfile) => void;
+    onSaveSuccess: (updatedUser: UserProfile) => void;
 }
 
 const careerOptions: CareerOption[] = [
@@ -20,7 +21,7 @@ const sectionOptions: SectionOption[] = [
     'Sección 3'
 ];
 
-const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onUserUpdated }) => {
+const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onSaveSuccess }) => {
     const [formData, setFormData] = useState({
         firstName: user.firstName,
         lastName: user.lastName,
@@ -28,20 +29,40 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onUserUpda
         section: user.section || 'Sección 1',
         score: user.score,
     });
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    const hasChanges = useMemo(() => {
+        return (
+            formData.firstName !== user.firstName ||
+            formData.lastName !== user.lastName ||
+            formData.career !== user.career ||
+            formData.section !== (user.section || 'Sección 1') ||
+            formData.score !== user.score
+        );
+    }, [formData, user]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'score' ? parseInt(value) || 0 : value }));
+        setFormData(prev => ({ ...prev, [name]: name === 'score' ? parseInt(value, 10) || 0 : value }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const updatedUser: UserProfile = {
-            ...user,
-            ...formData,
-        };
-        onUserUpdated(updatedUser);
-        onClose();
+        if (!hasChanges || isSaving) return;
+
+        setIsSaving(true);
+        setError('');
+
+        try {
+            const updatedUser = await adminService.updateUser(user.id, formData);
+            onSaveSuccess(updatedUser);
+            onClose();
+        } catch (err: any) {
+            setError(`Error al guardar: ${err.message}`);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -86,12 +107,17 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onUserUpda
                             <label htmlFor="score" className="block text-sm font-medium text-slate-700">Puntaje</label>
                             <input type="number" id="score" name="score" value={formData.score} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500" />
                         </div>
+                        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
                     </div>
 
                     <footer className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
                         <button type="button" onClick={onClose} className="px-6 py-2 bg-slate-200 text-slate-800 font-semibold rounded-lg hover:bg-slate-300 transition">Cancelar</button>
-                        <button type="submit" className="px-6 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition">
-                            Aceptar
+                        <button
+                            type="submit"
+                            disabled={!hasChanges || isSaving}
+                            className="px-6 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition disabled:bg-slate-400 disabled:cursor-not-allowed"
+                        >
+                            {isSaving ? 'Guardando...' : 'Guardar Cambios'}
                         </button>
                     </footer>
                 </form>

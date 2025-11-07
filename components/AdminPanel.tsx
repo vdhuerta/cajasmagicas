@@ -27,10 +27,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     const [successMessage, setSuccessMessage] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     
-    // State for pending changes
-    const [pendingChanges, setPendingChanges] = useState<Record<string, Partial<Omit<UserProfile, 'id' | 'email'>>>>({});
-    const [isSaving, setIsSaving] = useState(false);
-    
     const [detailsModalUser, setDetailsModalUser] = useState<UserProfile | null>(null);
     const [editModalUser, setEditModalUser] = useState<UserProfile | null>(null);
     const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserProfile | null>(null);
@@ -69,55 +65,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         }
     };
     
-    const handleUserUpdated = (updatedUser: UserProfile) => {
-        const originalUser = users.find(u => u.id === updatedUser.id);
-        if (!originalUser) return;
-    
-        // Update UI optimistically
+    const handleSaveSuccess = (updatedUser: UserProfile) => {
         setUsers(prevUsers => prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u));
-    
-        // Calculate changes and store them for batch saving
-        const changes: Partial<Omit<UserProfile, 'id' | 'email'>> = {};
-        if (originalUser.firstName !== updatedUser.firstName) changes.firstName = updatedUser.firstName;
-        if (originalUser.lastName !== updatedUser.lastName) changes.lastName = updatedUser.lastName;
-        if (originalUser.career !== updatedUser.career) changes.career = updatedUser.career;
-        if (originalUser.section !== updatedUser.section) changes.section = updatedUser.section;
-        if (originalUser.score !== updatedUser.score) changes.score = updatedUser.score;
-        
-        if (Object.keys(changes).length > 0) {
-            setPendingChanges(prev => ({
-                ...prev,
-                [updatedUser.id]: { ...(prev[updatedUser.id] || {}), ...changes }
-            }));
-        }
+        setSuccessMessage('Usuario actualizado correctamente.');
+        setTimeout(() => setSuccessMessage(''), 3000);
     };
-
-    const handleSaveChanges = async () => {
-        if (Object.keys(pendingChanges).length === 0) return;
-        setIsSaving(true);
-        setError('');
-        setSuccessMessage('');
-        try {
-            // FIX: Replaced object spread with Object.assign to resolve a "Spread types may only be created from object types" error.
-            // This can happen with complex generic types and Object.assign is a more robust alternative in such cases.
-            const updates = Object.entries(pendingChanges).map(([id, data]) => (Object.assign({ id }, data)));
-            await adminService.batchUpdateUsers(updates);
-            setPendingChanges({});
-            setSuccessMessage('¡Todos los cambios han sido guardados con éxito!');
-            
-            // Refetch users to show persisted data and provide visual confirmation
-            await fetchUsers(); 
-            
-            setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (err: any) {
-            setError(`Error al guardar los cambios: ${err.message}`);
-            // If saving fails, it's good practice to refetch to revert optimistic updates
-            fetchUsers(); 
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
 
     const handleDeleteUser = async () => {
         if (!deleteConfirmUser) return;
@@ -144,8 +96,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     if (!isAuthenticated) {
         return <AdminPasswordModal onSuccess={() => setIsAuthenticated(true)} onClose={onClose} />;
     }
-
-    const pendingChangesCount = Object.keys(pendingChanges).length;
 
     return (
         <div className="fixed inset-0 bg-slate-800 bg-opacity-60 flex items-center justify-center z-50 p-4">
@@ -174,15 +124,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-slate-500 flex-shrink-0">
                             <p>Total: <span className="font-bold text-slate-700">{users.length}</span></p>
-                            {pendingChangesCount > 0 && (
-                                <button
-                                    onClick={handleSaveChanges}
-                                    disabled={isSaving}
-                                    className="px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition disabled:bg-slate-400 disabled:cursor-not-allowed"
-                                >
-                                    {isSaving ? 'Guardando...' : `Guardar Cambios (${pendingChangesCount})`}
-                                </button>
-                            )}
                         </div>
                     </div>
                     {error && <p className="text-red-600 text-sm text-center bg-red-50 p-2 rounded-md">{error}</p>}
@@ -195,7 +136,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                     ) : (
                         <div className="space-y-2">
                             {filteredUsers.map(user => (
-                                <div key={user.id} className={`bg-white p-3 rounded-lg shadow-sm flex items-center gap-4 transition-all duration-300 ${pendingChanges[user.id] ? 'ring-2 ring-amber-400' : ''}`}>
+                                <div key={user.id} className={`bg-white p-3 rounded-lg shadow-sm flex items-center gap-4 transition-all duration-300`}>
                                     <div className="flex-grow">
                                         <p className="font-bold text-slate-800">{user.firstName} {user.lastName}</p>
                                         <p className="text-sm text-slate-500">{user.email}</p>
@@ -215,7 +156,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
             </div>
             
             {detailsModalUser && <UserDetailsModal user={detailsModalUser} onClose={() => setDetailsModalUser(null)} />}
-            {editModalUser && <EditUserModal user={editModalUser} onClose={() => setEditModalUser(null)} onUserUpdated={handleUserUpdated} />}
+            {editModalUser && <EditUserModal user={editModalUser} onClose={() => setEditModalUser(null)} onSaveSuccess={handleSaveSuccess} />}
             {emailModalUser && <Suspense fallback={null}><EmailUserModal user={emailModalUser} onClose={() => setEmailModalUser(null)} /></Suspense>}
 
             {deleteConfirmUser && (

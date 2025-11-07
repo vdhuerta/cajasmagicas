@@ -68,23 +68,34 @@ const handler: Handler = async (event) => {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'Payload must be a non-empty array of updates.' }) };
         }
 
-        try {
-            // NEW ARCHITECTURE: Use a single 'upsert' operation for atomic batch updates.
-            // This is far more robust and efficient than looping through individual updates.
-            const { error } = await supabaseAdmin
+        // --- NEW ARCHITECTURE: Concurrent Individual Updates ---
+        // Instead of a single 'upsert', we run multiple 'update' calls in parallel.
+        // This provides more granular error feedback and is more resilient.
+        const updatePromises = updates.map(userUpdate => {
+            const { id, ...updateData } = userUpdate;
+            return supabaseAdmin
                 .from('usuarios')
-                .upsert(updates);
+                .update(updateData)
+                .eq('id', id);
+        });
 
-            if (error) {
-                // If the single operation fails, throw the error to be caught below.
-                throw new Error(`Error de base de datos durante la actualización en lote: ${error.message}`);
+        try {
+            const results = await Promise.all(updatePromises);
+            
+            // After all promises resolve, check each result for an error.
+            const failedUpdates = results.filter(res => res.error);
+
+            if (failedUpdates.length > 0) {
+                // If any update failed, collect the error messages and report them.
+                const errorMessages = failedUpdates.map(res => res.error!.message).join('; ');
+                console.error('Algunas actualizaciones fallaron en el lote:', errorMessages);
+                throw new Error(`Algunas actualizaciones fallaron: ${errorMessages}`);
             }
 
-            return { statusCode: 200, headers, body: JSON.stringify({ message: 'Todos los usuarios fueron actualizados con éxito.' }) };
+            return { statusCode: 200, headers, body: JSON.stringify({ message: 'Todos los cambios han sido guardados con éxito.' }) };
 
         } catch (err: any) {
-            console.error('Error during batch update (upsert):', err);
-            // Return a generic 500 for any failure in this critical operation.
+            console.error('Error durante la actualización en lote (Promise.all):', err);
             return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
         }
       }
