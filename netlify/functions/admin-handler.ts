@@ -41,36 +41,38 @@ const handler: Handler = async (event) => {
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'El ID de usuario es requerido.' }) };
         }
         
-        // Si no hay cambios, simplemente devolvemos el usuario actual para evitar una escritura innecesaria.
         if (Object.keys(changes).length === 0) {
             const { data: currentUser, error } = await supabaseAdmin.from('usuarios').select('*').eq('id', id).single();
             if (error) throw error;
             return { statusCode: 200, headers, body: JSON.stringify(currentUser) };
         }
-
-        // --- Actualización Simplificada: Solo en la tabla 'usuarios' ---
-        // La tabla `public.usuarios` es la fuente de verdad para la UI de la app.
-        // Esto evita el error de permisos con `auth.admin.updateUserById` que causaba el fallo en Netlify.
-        const { data: updatedUser, error: updateError } = await supabaseAdmin
+        
+        // FIX: The .update().select() method returns an array, not a single object.
+        // Using .single() on an array-like result causes the "Cannot coerce..." error.
+        // The fix is to remove .single() and take the first element from the resulting array.
+        const { data: updatedUserData, error: updateError } = await supabaseAdmin
           .from('usuarios')
           .update(changes)
           .eq('id', id)
-          .select()
-          .single();
+          .select(); // Remove .single()
 
         if (updateError) {
             console.error(`Error en DB al actualizar perfil ${id}:`, updateError);
             throw new Error(`Error de base de datos al actualizar el perfil: ${updateError.message}`);
         }
         
-        // Devolver el usuario actualizado.
-        return { statusCode: 200, headers, body: JSON.stringify(updatedUser) };
+        if (!updatedUserData || updatedUserData.length === 0) {
+          throw new Error(`No se encontró ningún usuario para actualizar con el ID: ${id}`);
+        }
+        
+        // Return the first (and only) element from the array.
+        return { statusCode: 200, headers, body: JSON.stringify(updatedUserData[0]) };
       }
 
       case 'DELETE_USER': {
         const { userId } = payload;
         if (!userId) return { statusCode: 400, headers, body: JSON.stringify({ error: 'User ID is required.' }) };
-        // El trigger en auth.users se encargará de borrar en cascada la fila de public.usuarios
+        // The trigger in auth.users will cascade delete the row in public.usuarios
         const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
         if (authError) throw authError;
         return { statusCode: 200, headers, body: JSON.stringify({ message: 'User deleted successfully.' }) };
