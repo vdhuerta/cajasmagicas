@@ -1,10 +1,11 @@
 // services/adminService.ts
 import { UserProfile, PerformanceLog } from '../types';
+import { supabase } from './supabase';
+
+// Detecta si la aplicación se está ejecutando en el entorno de AI Studio.
+const isRunningInAiStudio = !!(window as any).aistudio;
 
 const callAdminFunction = async (action: string, payload?: any) => {
-    // Se utiliza una ruta relativa para llamar a la función de Netlify.
-    // Esto es más robusto y evita problemas con configuraciones de redirección
-    // para SPAs que pueden interceptar rutas absolutas.
     const functionUrl = '/.netlify/functions/admin-handler'; 
     
     try {
@@ -14,41 +15,74 @@ const callAdminFunction = async (action: string, payload?: any) => {
             body: JSON.stringify({ action, payload }),
         });
 
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const responseText = await response.text();
-            if (responseText.trim().startsWith('<!DOCTYPE')) {
-                 // Este es el error más común: Netlify devuelve el index.html de la SPA.
-                 throw new Error(`Error de enrutamiento del servidor: Se recibió una página HTML en lugar de datos JSON. Esto suele ocurrir por una configuración incorrecta de redirección en Netlify ('netlify.toml').`);
-            }
-            throw new Error('La respuesta del servidor no es un JSON válido.');
-        }
-
-        const data = await response.json();
-
+        const responseText = await response.text();
         if (!response.ok) {
-            throw new Error(data.error || `El servidor respondió con el estado ${response.status}`);
+            try {
+                const errorData = JSON.parse(responseText);
+                throw new Error(errorData.error || `El servidor respondió con el estado ${response.status}`);
+            } catch (e) {
+                if (responseText.trim().startsWith('<!DOCTYPE')) {
+                    throw new Error(`Error de enrutamiento del servidor: Se recibió HTML en lugar de JSON. Verifica la configuración de Netlify.`);
+                }
+                throw new Error(`Error de servidor no controlable. Respuesta: ${responseText.substring(0, 100)}...`);
+            }
         }
+        
+        return JSON.parse(responseText);
 
-        return data;
     } catch (error) {
         console.error(`Error en el servicio de admin en la acción '${action}':`, error);
         throw error;
     }
 };
 
-export const getDashboardData = (): Promise<{ users: UserProfile[], logs: { user_id: string }[] }> => {
-    return callAdminFunction('GET_DASHBOARD_DATA');
+export const getDashboardData = async (): Promise<{ users: UserProfile[], logs: { user_id: string }[] }> => {
+    if (isRunningInAiStudio) {
+        // En AI Studio, llamamos directamente a Supabase (requiere RLS de lectura).
+        console.log("AI Studio: Obteniendo datos del panel directamente desde Supabase.");
+        if (!supabase) throw new Error("El cliente de Supabase no está inicializado.");
+
+        const { data: users, error: usersError } = await supabase.from('usuarios').select('*');
+        if (usersError) throw new Error(`Error al obtener usuarios (revisa las políticas RLS): ${usersError.message}`);
+
+        const { data: logs, error: logsError } = await supabase.from('performance_logs').select('user_id');
+        if (logsError) throw new Error(`Error al obtener registros (revisa las políticas RLS): ${logsError.message}`);
+
+        return { users: users || [], logs: logs || [] };
+    } else {
+        // En producción (Netlify), usamos la función segura.
+        return callAdminFunction('GET_DASHBOARD_DATA');
+    }
 };
 
-export const getUserLogs = (userId: string): Promise<PerformanceLog[]> => {
-    return callAdminFunction('GET_USER_LOGS', { userId });
+export const getUserLogs = async (userId: string): Promise<PerformanceLog[]> => {
+    if (isRunningInAiStudio) {
+        console.log(`AI Studio: Obteniendo registros para el usuario ${userId} directamente desde Supabase.`);
+        if (!supabase) throw new Error("El cliente de Supabase no está inicializado.");
+        const { data, error } = await supabase.from('performance_logs').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+        if (error) throw new Error(`Error al obtener registros del usuario (revisa las políticas RLS): ${error.message}`);
+        return data || [];
+    } else {
+        return callAdminFunction('GET_USER_LOGS', { userId });
+    }
 };
+
+// Las operaciones de escritura (actualizar, eliminar) siempre deben pasar por el backend seguro
+// por razones de seguridad, ya que requieren permisos de administrador (service_role).
+// Funcionarán en Netlify, pero fallarán de forma segura en AI Studio, lo cual es el comportamiento esperado.
 
 export const updateUser = (id: string, updates: Partial<Omit<UserProfile, 'id' | 'email'>>): Promise<UserProfile> => {
+    if (isRunningInAiStudio) {
+         console.warn("AI Studio: La actualización de usuarios está deshabilitada por seguridad. Se requiere el entorno de Netlify.");
+         throw new Error("La actualización de usuarios solo está permitida en el entorno de producción (Netlify) por razones de seguridad.");
+    }
     return callAdminFunction('UPDATE_USER', { id, ...updates });
 };
 
 export const deleteUser = (userId: string): Promise<{ message: string }> => {
+     if (isRunningInAiStudio) {
+         console.warn("AI Studio: La eliminación de usuarios está deshabilitada por seguridad. Se requiere el entorno de Netlify.");
+         throw new Error("La eliminación de usuarios solo está permitida en el entorno de producción (Netlify) por razones de seguridad.");
+    }
     return callAdminFunction('DELETE_USER', { userId });
 };
