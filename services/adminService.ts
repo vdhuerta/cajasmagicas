@@ -19,7 +19,7 @@ const callAdminFunction = async (action: string, payload?: any) => {
             const responseText = await response.text();
             if (responseText.trim().startsWith('<!DOCTYPE')) {
                  // Este es el error más común: Netlify devuelve el index.html de la SPA.
-                 throw new Error(`Error de enrutamiento del servidor: Se recibió una página HTML en lugar de datos JSON. Esto suele ocurrir por una configuración incorrecta de redirección en Netlify ('netlify.toml'). Asegúrate de que las llamadas a '/.netlify/functions/*' no sean interceptadas por una regla de SPA ('/* /index.html 200').`);
+                 throw new Error(`Error de enrutamiento del servidor: Se recibió una página HTML en lugar de datos JSON. Esto suele ocurrir por una configuración incorrecta de redirección en Netlify ('netlify.toml').`);
             }
             throw new Error('La respuesta del servidor no es un JSON válido.');
         }
@@ -37,12 +37,12 @@ const callAdminFunction = async (action: string, payload?: any) => {
     }
 };
 
-export const getUserLogs = (userId: string): Promise<PerformanceLog[]> => {
-    return callAdminFunction('GET_USER_LOGS', { userId });
+export const getDashboardData = (): Promise<{ users: UserProfile[], logs: { user_id: string }[] }> => {
+    return callAdminFunction('GET_DASHBOARD_DATA');
 };
 
-export const batchUpdateUsers = (updates: { id: string; [key: string]: any }[]): Promise<{ message: string }> => {
-    return callAdminFunction('BATCH_UPDATE_USERS', { updates });
+export const getUserLogs = (userId: string): Promise<PerformanceLog[]> => {
+    return callAdminFunction('GET_USER_LOGS', { userId });
 };
 
 export const updateUser = (id: string, updates: Partial<Omit<UserProfile, 'id' | 'email'>>): Promise<UserProfile> => {

@@ -22,12 +22,22 @@ const handler: Handler = async (event) => {
     const { action, payload } = JSON.parse(event.body || '{}');
 
     switch (action) {
-      case 'GET_ALL_USERS': {
-        const { data, error } = await supabaseAdmin
+      case 'GET_DASHBOARD_DATA': {
+        const { data: users, error: usersError } = await supabaseAdmin
           .from('usuarios')
           .select('*');
-        if (error) throw error;
-        return { statusCode: 200, headers, body: JSON.stringify(data) };
+        if (usersError) throw usersError;
+
+        const { data: logs, error: logsError } = await supabaseAdmin
+            .from('performance_logs')
+            .select('user_id');
+        if (logsError) throw logsError;
+        
+        return { 
+            statusCode: 200, 
+            headers, 
+            body: JSON.stringify({ users: users || [], logs: logs || [] }) 
+        };
       }
 
       case 'GET_USER_LOGS': {
@@ -48,8 +58,6 @@ const handler: Handler = async (event) => {
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'El ID de usuario es requerido para la actualización.' }) };
         }
 
-        // Use the atomic .update().select().single() method.
-        // This is the most efficient and safest way to perform this operation.
         const { data: updatedUser, error } = await supabaseAdmin
           .from('usuarios')
           .update(updates)
@@ -57,7 +65,6 @@ const handler: Handler = async (event) => {
           .select()
           .single();
 
-        // Handle errors from Supabase
         if (error) {
           console.error(`Supabase error updating user ${id}:`, error);
           if (error.code === 'PGRST116') { // PostgREST error for "no rows returned" by .single()
