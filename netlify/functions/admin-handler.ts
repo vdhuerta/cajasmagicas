@@ -53,48 +53,56 @@ const handler: Handler = async (event) => {
       }
       
       case 'UPDATE_USER': {
-        const { id, firstName, lastName, career, section, score } = payload;
+        const { id, ...changes } = payload;
         if (!id) {
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'El ID de usuario es requerido para la actualización.' }) };
         }
 
-        // 1. Update user metadata in auth.users
-        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-          id,
-          { user_metadata: { firstName, lastName } }
-        );
+        if (Object.keys(changes).length === 0) {
+            // Técnicamente, la UI no debería permitir esto, pero es una buena validación del lado del servidor.
+            const { data: currentUser, error: fetchError } = await supabaseAdmin.from('usuarios').select().eq('id', id).single();
+            if (fetchError) throw fetchError;
+            return { statusCode: 200, headers, body: JSON.stringify(currentUser) };
+        }
 
-        if (authError) {
-          console.error(`Supabase auth error updating user ${id}:`, authError);
-          throw new Error(`Error actualizando los datos de autenticación: ${authError.message}`);
+        // --- Parte 1: Actualizar metadatos en auth.users (si aplica) ---
+        const authMetadataUpdates: { firstName?: string, lastName?: string } = {};
+        if ('firstName' in changes) {
+            authMetadataUpdates.firstName = changes.firstName;
+        }
+        if ('lastName' in changes) {
+            authMetadataUpdates.lastName = changes.lastName;
+        }
+
+        if (Object.keys(authMetadataUpdates).length > 0) {
+            const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+                id,
+                { user_metadata: authMetadataUpdates }
+            );
+
+            if (authError) {
+                console.error(`Supabase auth error updating user ${id}:`, authError);
+                throw new Error(`Error actualizando los datos de autenticación: ${authError.message}`);
+            }
         }
         
-        // 2. Update profile data in public.usuarios
-        const profileUpdates = {
-          firstName,
-          lastName,
-          career,
-          section,
-          score,
-        };
-
+        // --- Parte 2: Actualizar la tabla pública 'usuarios' ---
+        // Supabase maneja de forma inteligente los objetos de actualización parcial.
+        // Solo actualizará los campos que se proporcionan en el objeto `changes`.
         const { data: updatedUser, error: profileError } = await supabaseAdmin
           .from('usuarios')
-          .update(profileUpdates)
+          .update(changes) // Pasamos directamente el objeto con los campos a cambiar
           .eq('id', id)
           .select()
           .single();
 
         if (profileError) {
-          console.error(`Supabase profile error updating user ${id}:`, profileError);
-          if (profileError.code === 'PGRST116') { // PostgREST error for "no rows returned" by .single()
-            throw new Error(`No se encontró un usuario con el ID '${id}'. La fila podría haber sido eliminada.`);
-          }
-          throw new Error(`Error de base de datos al actualizar el perfil: ${profileError.message}`);
+            console.error(`Supabase profile error updating user ${id}:`, profileError);
+            throw new Error(`Error de base de datos al actualizar el perfil: ${profileError.message}`);
         }
         
         if (!updatedUser) {
-          throw new Error('La operación de actualización no devolvió los datos del usuario, a pesar de no haber un error explícito.');
+            throw new Error('La operación de actualización no devolvió los datos del usuario. Verifique que el usuario exista.');
         }
 
         return { statusCode: 200, headers, body: JSON.stringify(updatedUser) };

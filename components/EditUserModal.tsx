@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { UserProfile, CareerOption, SectionOption } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import * as adminService from '../services/adminService';
@@ -21,7 +21,10 @@ const sectionOptions: SectionOption[] = [
     'Sección 3'
 ];
 
+type UserUpdatePayload = Partial<Pick<UserProfile, 'firstName' | 'lastName' | 'career' | 'section' | 'score'>>;
+
 const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onSaveSuccess }) => {
+    // Estado para la UI, siempre refleja lo que está en el formulario
     const [formData, setFormData] = useState({
         firstName: user.firstName,
         lastName: user.lastName,
@@ -29,34 +32,48 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onSaveSucc
         section: user.section || 'Sección 1',
         score: user.score,
     });
+    
+    // Estado para rastrear únicamente los campos modificados
+    const [pendingChanges, setPendingChanges] = useState<UserUpdatePayload>({});
+
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
 
-    const hasChanges = useMemo(() => {
-        return (
-            formData.firstName !== user.firstName ||
-            formData.lastName !== user.lastName ||
-            formData.career !== user.career ||
-            formData.section !== (user.section || 'Sección 1') ||
-            formData.score !== user.score
-        );
-    }, [formData, user]);
-
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'score' ? parseInt(value, 10) || 0 : value }));
+        const parsedValue = name === 'score' ? parseInt(value, 10) || 0 : value;
+
+        // 1. Actualiza el estado de la UI para una respuesta inmediata
+        setFormData(prev => ({ ...prev, [name]: parsedValue as any }));
+        
+        // 2. Registra el cambio en el objeto "pendingChanges"
+        const originalValue = user[name as keyof UserProfile] ?? (name === 'section' ? 'Sección 1' : undefined);
+        
+        setPendingChanges(prev => {
+            const newChanges = { ...prev };
+            // @ts-ignore - We know the key exists on the UserProfile type
+            if (parsedValue !== originalValue) {
+                // @ts-ignore
+                newChanges[name] = parsedValue;
+            } else {
+                // Si el valor se revierte al original, se elimina de pendingChanges
+                delete newChanges[name as keyof typeof newChanges];
+            }
+            return newChanges;
+        });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!hasChanges || isSaving) return;
+        if (Object.keys(pendingChanges).length === 0 || isSaving) return;
 
         setIsSaving(true);
         setError('');
 
         try {
-            const updatedUser = await adminService.updateUser(user.id, formData);
-            onSaveSuccess(updatedUser);
+            // Se envían solo los campos que han cambiado al servicio de administración
+            const updatedUser = await adminService.updateUser(user.id, pendingChanges);
+            onSaveSuccess(updatedUser); // Esto refrescará el estado del componente padre
             onClose();
         } catch (err: any) {
             setError(`Error al guardar: ${err.message}`);
@@ -114,7 +131,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onSaveSucc
                         <button type="button" onClick={onClose} className="px-6 py-2 bg-slate-200 text-slate-800 font-semibold rounded-lg hover:bg-slate-300 transition">Cancelar</button>
                         <button
                             type="submit"
-                            disabled={!hasChanges || isSaving}
+                            disabled={Object.keys(pendingChanges).length === 0 || isSaving}
                             className="px-6 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition disabled:bg-slate-400 disabled:cursor-not-allowed"
                         >
                             {isSaving ? 'Guardando...' : 'Guardar Cambios'}
