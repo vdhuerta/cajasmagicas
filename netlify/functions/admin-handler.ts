@@ -37,50 +37,34 @@ const handler: Handler = async (event) => {
       
       case 'UPDATE_USER': {
         const { id, ...changes } = payload;
-        if (!id) return { statusCode: 400, headers, body: JSON.stringify({ error: 'El ID de usuario es requerido.' }) };
+        if (!id) {
+          return { statusCode: 400, headers, body: JSON.stringify({ error: 'El ID de usuario es requerido.' }) };
+        }
+        
+        // Si no hay cambios, simplemente devolvemos el usuario actual para evitar una escritura innecesaria.
         if (Object.keys(changes).length === 0) {
-            const { data: currentUser, error } = await supabaseAdmin.from('usuarios').select().eq('id', id).single();
+            const { data: currentUser, error } = await supabaseAdmin.from('usuarios').select('*').eq('id', id).single();
             if (error) throw error;
             return { statusCode: 200, headers, body: JSON.stringify(currentUser) };
         }
 
-        // --- PASO 1: Actualizar la tabla de autenticación (auth.users) ---
-        // Estos son datos protegidos que solo el service_role puede tocar.
-        const authUpdates: { [key: string]: any } = {};
-        if (changes.firstName) authUpdates.firstName = changes.firstName;
-        if (changes.lastName) authUpdates.lastName = changes.lastName;
+        // --- Actualización Simplificada: Solo en la tabla 'usuarios' ---
+        // La tabla `public.usuarios` es la fuente de verdad para la UI de la app.
+        // Esto evita el error de permisos con `auth.admin.updateUserById` que causaba el fallo en Netlify.
+        const { data: updatedUser, error: updateError } = await supabaseAdmin
+          .from('usuarios')
+          .update(changes)
+          .eq('id', id)
+          .select()
+          .single();
 
-        if (Object.keys(authUpdates).length > 0) {
-            const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, { user_metadata: authUpdates });
-            if (authError) {
-                console.error(`Error en Supabase Auth al actualizar ${id}:`, authError);
-                throw new Error(`Error actualizando los datos de autenticación: ${authError.message}`);
-            }
+        if (updateError) {
+            console.error(`Error en DB al actualizar perfil ${id}:`, updateError);
+            throw new Error(`Error de base de datos al actualizar el perfil: ${updateError.message}`);
         }
         
-        // --- PASO 2: Actualizar la tabla de perfil público (public.usuarios) ---
-        // Creamos un objeto solo con los campos que pertenecen a esta tabla.
-        const profileUpdates: { [key: string]: any } = {};
-        if (changes.career) profileUpdates.career = changes.career;
-        if (changes.section) profileUpdates.section = changes.section;
-        if (changes.score !== undefined) profileUpdates.score = changes.score;
-        // También replicamos el nombre/apellido en la tabla pública para consistencia
-        if (changes.firstName) profileUpdates.firstName = changes.firstName;
-        if (changes.lastName) profileUpdates.lastName = changes.lastName;
-        
-        if (Object.keys(profileUpdates).length > 0) {
-            const { error: profileError } = await supabaseAdmin.from('usuarios').update(profileUpdates).eq('id', id);
-            if (profileError) {
-                console.error(`Error en DB al actualizar perfil ${id}:`, profileError);
-                throw new Error(`Error de base de datos al actualizar el perfil: ${profileError.message}`);
-            }
-        }
-        
-        // --- PASO 3: Devolver el usuario completamente actualizado ---
-        const { data: finalUser, error: finalUserError } = await supabaseAdmin.from('usuarios').select().eq('id', id).single();
-        if (finalUserError) throw new Error("No se pudo obtener el usuario actualizado después de guardar.");
-
-        return { statusCode: 200, headers, body: JSON.stringify(finalUser) };
+        // Devolver el usuario actualizado.
+        return { statusCode: 200, headers, body: JSON.stringify(updatedUser) };
       }
 
       case 'DELETE_USER': {
