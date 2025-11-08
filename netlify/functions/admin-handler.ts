@@ -53,26 +53,46 @@ const handler: Handler = async (event) => {
       }
       
       case 'UPDATE_USER': {
-        const { id, ...updates } = payload;
+        const { id, firstName, lastName, career, section, score } = payload;
         if (!id) {
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'El ID de usuario es requerido para la actualización.' }) };
         }
 
-        const { data: updatedUser, error } = await supabaseAdmin
+        // 1. Update user metadata in auth.users
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+          id,
+          { user_metadata: { firstName, lastName } }
+        );
+
+        if (authError) {
+          console.error(`Supabase auth error updating user ${id}:`, authError);
+          throw new Error(`Error actualizando los datos de autenticación: ${authError.message}`);
+        }
+        
+        // 2. Update profile data in public.usuarios
+        const profileUpdates = {
+          firstName,
+          lastName,
+          career,
+          section,
+          score,
+        };
+
+        const { data: updatedUser, error: profileError } = await supabaseAdmin
           .from('usuarios')
-          .update(updates)
+          .update(profileUpdates)
           .eq('id', id)
           .select()
           .single();
 
-        if (error) {
-          console.error(`Supabase error updating user ${id}:`, error);
-          if (error.code === 'PGRST116') { // PostgREST error for "no rows returned" by .single()
+        if (profileError) {
+          console.error(`Supabase profile error updating user ${id}:`, profileError);
+          if (profileError.code === 'PGRST116') { // PostgREST error for "no rows returned" by .single()
             throw new Error(`No se encontró un usuario con el ID '${id}'. La fila podría haber sido eliminada.`);
           }
-          throw new Error(`Error de base de datos: ${error.message}`);
+          throw new Error(`Error de base de datos al actualizar el perfil: ${profileError.message}`);
         }
-
+        
         if (!updatedUser) {
           throw new Error('La operación de actualización no devolvió los datos del usuario, a pesar de no haber un error explícito.');
         }
@@ -87,6 +107,7 @@ const handler: Handler = async (event) => {
         const { error: logError } = await supabaseAdmin.from('performance_logs').delete().eq('user_id', userId);
         if (logError) console.error(`Non-critical: Could not delete logs for user ${userId}:`, logError.message);
         
+        // The trigger on auth.users will handle deleting the public.usuarios row
         const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
         if (authError) throw authError;
 
