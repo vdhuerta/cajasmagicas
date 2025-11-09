@@ -67,16 +67,40 @@ export const getUserLogs = async (userId: string): Promise<PerformanceLog[]> => 
     }
 };
 
-// Las operaciones de escritura (actualizar, eliminar) siempre deben pasar por el backend seguro
-// por razones de seguridad, ya que requieren permisos de administrador (service_role).
-// Funcionarán en Netlify, pero fallarán de forma segura en AI Studio, lo cual es el comportamiento esperado.
-
-export const updateUser = (id: string, updates: Partial<Omit<UserProfile, 'id' | 'email'>>): Promise<UserProfile> => {
+export const updateUser = async (id: string, updates: Partial<Omit<UserProfile, 'id' | 'email'>>): Promise<UserProfile> => {
     if (isRunningInAiStudio) {
-         console.warn("AI Studio: La actualización de usuarios está deshabilitada por seguridad. Se requiere el entorno de Netlify.");
-         throw new Error("La actualización de usuarios solo está permitida en el entorno de producción (Netlify) por razones de seguridad.");
+         console.warn("AI Studio: User updates are disabled for security. Netlify environment is required.");
+         throw new Error("User updates are only permitted in the production environment (Netlify) for security reasons.");
     }
-    return callAdminFunction('UPDATE_USER', { id, ...updates });
+    
+    const functionUrl = '/.netlify/functions/update-user';
+    
+    try {
+        const response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, ...updates }),
+        });
+
+        const responseText = await response.text();
+        if (!response.ok) {
+            try {
+                const errorData = JSON.parse(responseText);
+                throw new Error(errorData.error || `Server responded with status ${response.status}`);
+            } catch (e) {
+                if (responseText.trim().startsWith('<!DOCTYPE')) {
+                    throw new Error(`Server routing error: Received HTML instead of JSON. Check Netlify configuration.`);
+                }
+                throw new Error(`Unparseable server error. Response: ${responseText.substring(0, 100)}...`);
+            }
+        }
+        
+        return JSON.parse(responseText);
+
+    } catch (error) {
+        console.error(`Error in updateUser service:`, error);
+        throw error;
+    }
 };
 
 export const deleteUser = (userId: string): Promise<{ message: string }> => {

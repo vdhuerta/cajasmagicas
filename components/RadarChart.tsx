@@ -95,11 +95,11 @@ const RadarChart: React.FC<RadarChartProps> = ({ datasets, size = 300 }) => {
                 
                 {/* Labels */}
                 {labelPoints.map((p, i) => {
-                    let textAnchor = "middle";
+                    // FIX: Explicitly type `textAnchor` to prevent type widening to `string` and satisfy the SVG text attribute's expected type.
+                    let textAnchor: 'start' | 'middle' | 'end' = "middle";
                     if (p.x < centerX - 10) textAnchor = "end";
                     if (p.x > centerX + 10) textAnchor = "start";
                     
-                    // FIX: Add type assertion to resolve 'split' does not exist on type 'unknown' error.
                     const labelParts = (allLabels[i] as string).split(' ');
                     const line1 = labelParts[0];
                     const line2 = labelParts.slice(1).join(' ');
