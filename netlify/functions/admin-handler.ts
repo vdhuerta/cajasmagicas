@@ -40,66 +40,29 @@ const handler: Handler = async (event) => {
         if (!id) {
           return { statusCode: 400, headers, body: JSON.stringify({ error: 'El ID de usuario es requerido.' }) };
         }
-        
-        // Si no hay cambios, simplemente devuelve el usuario actual.
-        if (Object.keys(changes).length === 0) {
-            const { data: currentUser, error } = await supabaseAdmin.from('usuarios').select('*').eq('id', id).single();
-            if (error) throw error;
-            return { statusCode: 200, headers, body: JSON.stringify(currentUser) };
-        }
-        
-        // Separar los cambios para la tabla de autenticación y la tabla de perfiles.
-        const authMetadataChanges: Record<string, any> = {};
-        const profileChanges: Record<string, any> = {};
 
-        if (changes.firstName) authMetadataChanges.firstName = changes.firstName;
-        if (changes.lastName) authMetadataChanges.lastName = changes.lastName;
-
-        // Mantener los datos sincronizados en ambas tablas si se cambian.
-        if (changes.firstName) profileChanges.firstName = changes.firstName;
-        if (changes.lastName) profileChanges.lastName = changes.lastName;
-        
-        if (changes.career) profileChanges.career = changes.career;
-        if (changes.section) profileChanges.section = changes.section;
-        if (changes.score !== undefined) profileChanges.score = changes.score;
-
-        // Paso 1: Actualizar user_metadata en auth.users (fuente principal para nombre/apellido).
-        if (Object.keys(authMetadataChanges).length > 0) {
-          const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-            id,
-            { user_metadata: authMetadataChanges }
-          );
-          if (authError) {
-            console.error(`Error actualizando los datos de autenticación para ${id}:`, authError);
-            throw new Error(`Error actualizando los datos de autenticación: ${authError.message}`);
-          }
-        }
-
-        // Paso 2: Actualizar la tabla public.usuarios con los datos del perfil.
-        if (Object.keys(profileChanges).length > 0) {
-          const { error: profileError } = await supabaseAdmin
+        // --- SOLUCIÓN DEFINITIVA ---
+        // Se realiza una única operación de actualización directamente sobre la tabla 'usuarios'.
+        // La clave 'service_role' tiene permisos para hacer esto sin ser afectada por RLS.
+        // Esto elimina la compleja y problemática llamada a `auth.admin.updateUserById`.
+        const { data, error } = await supabaseAdmin
             .from('usuarios')
-            .update(profileChanges)
-            .eq('id', id);
+            .update(changes)
+            .eq('id', id)
+            .select();
 
-          if (profileError) {
-            console.error(`Error actualizando los datos del perfil para ${id}:`, profileError);
-            throw new Error(`Error de base de datos al actualizar el perfil: ${profileError.message}`);
-          }
+        if (error) {
+            console.error(`Error al actualizar el perfil para ${id}:`, error);
+            throw new Error(`Error de base de datos al actualizar el perfil: ${error.message}`);
         }
 
-        // Paso 3: Devolver el perfil actualizado desde la tabla public.usuarios para confirmar.
-        const { data: finalUserData, error: fetchError } = await supabaseAdmin
-          .from('usuarios')
-          .select('*')
-          .eq('id', id)
-          .single();
-
-        if (fetchError) {
-          throw new Error(`No se pudo recuperar el perfil de usuario actualizado: ${fetchError.message}`);
+        if (!data || data.length === 0) {
+            // Este error ahora solo ocurrirá si el ID realmente no existe en la tabla 'usuarios'.
+            throw new Error(`No se encontró ningún usuario para actualizar con el ID: ${id}.`);
         }
-
-        return { statusCode: 200, headers, body: JSON.stringify(finalUserData) };
+        
+        // El método .select() devuelve un array, por lo que retornamos el primer elemento.
+        return { statusCode: 200, headers, body: JSON.stringify(data[0]) };
       }
 
       case 'DELETE_USER': {
