@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { PerformanceLog, UserProfile } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { DocumentReportIcon } from './icons/DocumentReportIcon';
-import { PEDAGOGICAL_KNOWLEDGE_BASE, GAME_NAME_TRANSLATIONS, LEVEL_NAME_TRANSLATIONS, GAME_SKILL_MAP } from '../constants';
+import { PEDAGOGICAL_KNOWLEDGE_BASE, GAME_NAME_TRANSLATIONS, LEVEL_NAME_TRANSLATIONS, GAME_SKILL_MAP, LEVEL_SKILL_MAP, CLASSIFICATION_SKILLS, SERIATION_SUB_SKILLS } from '../constants';
 import { StarIcon } from './icons/StarIcon';
 import { WarningIcon } from './icons/WarningIcon';
 import RadarChart from './RadarChart';
@@ -99,7 +99,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
         const skillData: Record<string, { totalIncorrect: number; count: number; totalItems: number }> = {};
         
         performanceLogs.forEach(log => {
-            const skill = GAME_SKILL_MAP[log.game_name] || 'Otros';
+            const skill = LEVEL_SKILL_MAP[log.level_name] || GAME_SKILL_MAP[log.game_name] || 'Otros';
             if (!skillData[skill]) {
                 skillData[skill] = { totalIncorrect: 0, count: 0, totalItems: 0 };
             }
@@ -107,36 +107,45 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
             skillData[skill].count += 1;
             skillData[skill].totalItems += log.total_items || 0;
         });
-
-        const skillPerformance = Object.entries(skillData).map(([skill, data]) => ({
-            label: skill,
-            value: data.totalItems > 0 ? Math.max(0, (data.totalItems - data.totalIncorrect) / data.totalItems) : 0,
-        }));
-
-        const CLASSIFICATION_SKILLS = ['Clasificación', 'Memoria y Atención', 'Atención y Percepción', 'Conteo y Correspondencia'];
-        const SERIATION_SKILLS = ['Seriación'];
-
-        const classificationPerformanceData = skillPerformance.filter(s => CLASSIFICATION_SKILLS.includes(s.label));
-        const seriationPerformanceData = skillPerformance.filter(s => SERIATION_SKILLS.includes(s.label));
         
+        const classificationPerformanceData = CLASSIFICATION_SKILLS.map(skill => {
+            const data = skillData[skill];
+            const value = (data && data.totalItems > 0) ? Math.max(0, (data.totalItems - data.totalIncorrect) / data.totalItems) : 0;
+            return { label: skill, value };
+        });
+
+        const seriationPerformanceData = SERIATION_SUB_SKILLS.map(skill => {
+            const data = skillData[skill];
+            const value = (data && data.totalItems > 0) ? Math.max(0, (data.totalItems - data.totalIncorrect) / data.totalItems) : 0;
+            return { label: skill, value };
+        });
+
         const radarDatasets = [
             { data: classificationPerformanceData, color: 'fill-sky-500/50', stroke: 'stroke-sky-700' },
             { data: seriationPerformanceData, color: 'fill-rose-500/50', stroke: 'stroke-rose-700' }
         ];
 
         const pedagogicalInsights: { skill: string; message: string; recommendation: string; type: 'strength' | 'consolidating' | 'opportunity' }[] = [];
-        Object.entries(skillData).forEach(([skill, data]) => {
+        
+        const allAnalyzedSkills = new Set([...CLASSIFICATION_SKILLS, ...SERIATION_SUB_SKILLS]);
+        allAnalyzedSkills.forEach(skill => {
             const knowledge = PEDAGOGICAL_KNOWLEDGE_BASE[skill];
-            if (knowledge && data.totalItems > 0) {
-                const precision = (data.totalItems - data.totalIncorrect) / data.totalItems;
-                if (precision >= 0.9) pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.strength, type: 'strength' });
-                else if (precision >= 0.6) pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.consolidating, type: 'consolidating' });
-                else pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.opportunity, type: 'opportunity' });
+            if (knowledge) {
+                const data = skillData[skill];
+                const precision = (data && data.totalItems > 0) ? (data.totalItems - data.totalIncorrect) / data.totalItems : 0;
+                
+                if (precision >= 0.9) {
+                    pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.strength, type: 'strength' });
+                } else if (precision >= 0.6) {
+                    pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.consolidating, type: 'consolidating' });
+                } else {
+                    pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.opportunity, type: 'opportunity' });
+                }
             }
         });
         
         const classificationInsights = pedagogicalInsights.filter(i => CLASSIFICATION_SKILLS.includes(i.skill));
-        const seriationInsights = pedagogicalInsights.filter(i => SERIATION_SKILLS.includes(i.skill));
+        const seriationInsights = pedagogicalInsights.filter(i => SERIATION_SUB_SKILLS.includes(i.skill));
         
         const completedActivitiesSet = new Set(performanceLogs.map(log => log.level_name));
         const totalTrackableActivities = Object.keys(LEVEL_NAME_TRANSLATIONS).filter(key => key !== 'classification_expert').length;
@@ -148,7 +157,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
         
         const playedSeriationGames = new Set(
             performanceLogs
-                .filter(log => SERIATION_SKILLS.includes(GAME_SKILL_MAP[log.game_name]))
+                .filter(log => SERIATION_SUB_SKILLS.includes(LEVEL_SKILL_MAP[log.level_name]))
                 .map(log => log.level_name)
         );
         
@@ -350,7 +359,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
                             </div>
                              <div className="flex justify-center gap-4 mt-2 text-sm font-semibold">
                                 <div className="flex items-center gap-2"><div className="w-4 h-4 bg-sky-500/50 border border-sky-700 rounded-sm"></div><span className="text-sky-800">Clasificación y Afines</span></div>
-                                <div className="flex items-center gap-2"><div className="w-4 h-4 bg-rose-500/50 border border-rose-700 rounded-sm"></div><span className="text-rose-800">Seriación</span></div>
+                                <div className="flex items-center gap-2"><div className="w-4 h-4 bg-rose-500/50 border border-rose-700 rounded-sm"></div><span className="text-rose-800">Habilidades de Seriación</span></div>
                             </div>
                         </div>
                         
@@ -362,7 +371,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
                                         <li key={detail.levelName} className="p-3 bg-white rounded-md shadow-sm">
                                             <p className="font-bold text-slate-800">{detail.gameName}</p>
                                             <p className="text-sm text-slate-500">{detail.levelName}</p>
-                                            <div className="grid grid-cols-3 gap-2 mt-2 text-center text-xs">
+                                            <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
                                                 <div className="bg-slate-100 p-1 rounded">
                                                     <p className="font-bold text-sky-700 text-base">{detail.sessions}</p>
                                                     <p className="text-slate-500">Partidas</p>

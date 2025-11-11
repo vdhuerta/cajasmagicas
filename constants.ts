@@ -34,21 +34,57 @@ export const PEDAGOGICAL_KNOWLEDGE_BASE: Record<string, {
             }
         }
     },
-    'Seriación': {
-        description: 'Habilidad para ordenar objetos sistemáticamente según diferencias crecientes o decrecientes, como tamaño o longitud.',
-        games: ['Seriation', 'HiddenStep', 'ColorSnake'],
+    'Seriación Ordinal': {
+        description: 'Habilidad para ordenar objetos según una magnitud creciente o decreciente (tamaño, valor).',
+        games: ['Seriation'],
         feedbackRules: {
             strength: {
-                message: "¡Excelente pensamiento lógico! Ordena secuencias con rapidez y precisión, demostrando una sólida comprensión del orden.",
-                recommendation: "Introducir secuencias más largas o con patrones más complejos (ej. de 2 en 2)."
+                message: "Demuestra una sólida comprensión del orden cuantitativo. Ordena secuencias de tamaño o valor con rapidez y precisión.",
+                recommendation: "Introducir secuencias más largas o con patrones de crecimiento no constantes (ej. 1, 3, 6, 10...)."
             },
             consolidating: {
-                message: "Comprende bien el concepto de seriación, aunque a veces necesita ensayar para encontrar el orden correcto.",
+                message: "Comprende el concepto de ordenar por tamaño, aunque a veces necesita ensayar para encontrar el orden correcto, especialmente en secuencias descendentes.",
                 recommendation: "Practicar con secuencias descendentes y animar a verbalizar por qué un elemento va antes que otro."
             },
             opportunity: {
-                message: "La habilidad de ordenar secuencias lógicas está en desarrollo.",
-                recommendation: "Comenzar con secuencias cortas y muy evidentes (ej. 3 elementos consecutivos) para construir la confianza."
+                message: "La habilidad de ordenar secuencias por magnitud está en desarrollo. Puede confundir el orden creciente con el decreciente.",
+                recommendation: "Comenzar con secuencias muy cortas (3 elementos) y evidentes para construir confianza antes de pasar a series más largas."
+            }
+        }
+    },
+    'Seriación por Patrones': {
+        description: 'Habilidad para identificar y extender patrones cualitativos que se repiten (ej. AAB, ABCB).',
+        games: ['Seriation', 'ColorSnake'],
+        feedbackRules: {
+            strength: {
+                message: "¡Excelente identificando núcleos! Reconoce y extiende patrones de repetición complejos (AAB, ABCB) con facilidad.",
+                recommendation: "Desafiar a crear sus propios patrones con objetos físicos y pedir a otros que los continúen."
+            },
+            consolidating: {
+                message: "Logra extender patrones simples, pero puede dudar cuando el 'núcleo' de la repetición tiene más de dos elementos o estructuras complejas (AABB).",
+                recommendation: "Fomentar la verbalización del patrón ('rojo, rojo, azul...') para ayudar a interiorizar el núcleo de la secuencia."
+            },
+            opportunity: {
+                message: "La identificación de la unidad que se repite en un patrón es un área a reforzar. Tiende a continuar la secuencia por un solo atributo (ej. color).",
+                recommendation: "Trabajar con patrones de repetición muy simples (AB, AB...) usando aplausos y chasquidos para asociar el patrón a un ritmo."
+            }
+        }
+    },
+    'Completar Secuencias': {
+        description: 'Habilidad para identificar el elemento faltante en una secuencia (interpolación).',
+        games: ['HiddenStep'],
+        feedbackRules: {
+            strength: {
+                message: "¡Un verdadero detective de secuencias! Infiere con precisión el elemento faltante analizando las relaciones entre los elementos adyacentes.",
+                recommendation: "Presentar secuencias con dos o más elementos faltantes para aumentar el desafío lógico."
+            },
+            consolidating: {
+                message: "Generalmente encuentra el elemento faltante, aunque puede requerir varios intentos si la regla de la secuencia no es inmediatamente obvia.",
+                recommendation: "Animar a que describa la relación entre los elementos anterior y posterior al hueco antes de elegir la pieza."
+            },
+            opportunity: {
+                message: "Encontrar el elemento que falta en una secuencia es una habilidad en desarrollo. A menudo elige una pieza que sigue al último elemento visible.",
+                recommendation: "Practicar con secuencias completas y luego tapar un elemento del medio, preguntando '¿cuál escondí?' para enfocar la atención en la interpolación."
             }
         }
     },
@@ -117,6 +153,20 @@ export const GAME_SKILL_MAP: Record<string, string> = Object.entries(PEDAGOGICAL
         });
         return acc;
     }, {} as Record<string, string>);
+
+// Nuevo mapa para mapear niveles específicos a sub-habilidades de seriación.
+export const LEVEL_SKILL_MAP: Record<string, string> = {
+    'seriation_ascending': 'Seriación Ordinal',
+    'seriation_descending': 'Seriación Ordinal',
+    'seriation_growth-pattern': 'Seriación Ordinal',
+    'seriation_abc-pattern': 'Seriación por Patrones',
+    'color_snake_game': 'Seriación por Patrones',
+    'hidden_step_game': 'Completar Secuencias',
+};
+
+// Habilidades agrupadas para los paneles de desempeño.
+export const CLASSIFICATION_SKILLS = ['Clasificación', 'Memoria y Atención', 'Atención y Percepción', 'Conteo y Correspondencia'];
+export const SERIATION_SUB_SKILLS = ['Seriación Ordinal', 'Seriación por Patrones', 'Completar Secuencias'];
 
 
 // Traduce los nombres internos de los juegos a español para la UI.
