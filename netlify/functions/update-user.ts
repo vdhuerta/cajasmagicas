@@ -30,19 +30,28 @@ const handler: Handler = async (event) => {
         .from('usuarios')
         .update(changes)
         .eq('id', id)
-        .select()
-        .single(); // Use .single() to get a single object back instead of an array
+        .select();
 
     if (error) {
-        console.error(`Error updating profile for ${id}:`, error);
-        throw new Error(`Database error while updating profile: ${error.message}`);
+        // Handle database-level errors (e.g., RLS violations, connection issues)
+        console.error(`Supabase error updating profile for ${id}:`, error);
+        throw new Error(`Error de base de datos al actualizar el perfil: ${error.message}`);
     }
 
-    if (!data) {
-        throw new Error(`Could not find user to update with ID: ${id}.`);
+    // Verify that exactly one record was found and updated.
+    // If .eq('id', id) finds no match, `data` will be an empty array [].
+    if (!data || data.length === 0) {
+        // This is a critical case: the user ID did not exist.
+        throw new Error(`No se encontró un usuario con el ID '${id}' para actualizar. La operación falló.`);
+    }
+
+    if (data.length > 1) {
+        // This case is highly unlikely with a unique ID but is good practice to handle.
+        console.warn(`Warning: Multiple users were updated for a single ID '${id}'. This should not happen.`);
     }
     
-    return { statusCode: 200, headers, body: JSON.stringify(data) };
+    // Success: return the first (and only) updated user profile.
+    return { statusCode: 200, headers, body: JSON.stringify(data[0]) };
 
   } catch (error: any) {
     console.error('Error in update-user function:', error);

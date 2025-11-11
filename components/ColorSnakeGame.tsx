@@ -42,7 +42,7 @@ const ColorSnakeGame: React.FC<ColorSnakeGameProps> = ({ onGoHome, onUnlockAchie
   const gameAreaRef = useRef<HTMLDivElement>(null);
 
   const levelId = 'color_snake_game';
-  const gameTitle = LEVEL_NAME_TRANSLATIONS[levelId] || "La Serpiente de Colores";
+  const gameTitle = LEVEL_NAME_TRANSLATIONS[levelId as keyof typeof LEVEL_NAME_TRANSLATIONS] || "La Serpiente de Colores";
   const instructionText = '¡Ayuda a la serpiente a crecer! Descubre su patrón de colores y arrastra las siguientes dos piezas para continuar la secuencia.';
 
   const startNewRound = useCallback(() => {
@@ -93,7 +93,15 @@ const ColorSnakeGame: React.FC<ColorSnakeGameProps> = ({ onGoHome, onUnlockAchie
       newDropped[slotIndex] = droppedRod;
       return newDropped;
     });
-    setChoicePile(prev => prev.filter(r => r.id !== droppedRod.id));
+    setChoicePile(prev => {
+        const indexToRemove = prev.findIndex(r => r.id === droppedRod.id);
+        if (indexToRemove > -1) {
+            const newPile = [...prev];
+            newPile.splice(indexToRemove, 1);
+            return newPile;
+        }
+        return prev;
+    });
   }, [droppedRods, feedback]);
   
   const handleReturnRod = (slotIndex: number) => {
@@ -171,11 +179,12 @@ const ColorSnakeGame: React.FC<ColorSnakeGameProps> = ({ onGoHome, onUnlockAchie
         total_items: TOTAL_ROUNDS,
     });
     
+    const points = 350 - (totalIncorrectAttempts * 20);
+    setPointsAwarded(points);
+    if (points > 0) addScore(points, `Completaste ${gameTitle}`);
+
     if (!completedActivities.has(levelId)) {
-      const points = 350 - (totalIncorrectAttempts * 20);
-      setPointsAwarded(points);
-      if (points > 0) addScore(points, `Completaste ${gameTitle}`);
-      onUnlockAchievement('SERIATION_COLOR_SNAKE_WIN');
+        onUnlockAchievement('SERIATION_COLOR_SNAKE_WIN');
     }
   };
 
@@ -275,8 +284,8 @@ const ColorSnakeGame: React.FC<ColorSnakeGameProps> = ({ onGoHome, onUnlockAchie
           className="w-full max-w-md p-4 bg-rose-50 rounded-2xl shadow-inner flex flex-wrap items-end justify-center gap-4 transition-all duration-300"
           style={{ minHeight: `${choicePileMaxHeight}px` }}
         >
-          {choicePile.map(rod => (
-            <div key={rod.id} className="flex flex-col items-center justify-end">
+          {choicePile.map((rod, index) => (
+            <div key={`${rod.id}-${index}`} className="flex flex-col items-center justify-end">
               <CuisenaireRod rod={rod} />
             </div>
           ))}

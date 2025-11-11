@@ -20,9 +20,15 @@ interface PerformanceDashboardProps {
 const MIN_SESSIONS_FOR_DASHBOARD = 5;
 
 const formatTime = (ms: number): string => {
+    if (ms < 1000) {
+        return `${Math.round(ms / 100) / 10}s`;
+    }
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
+    if (minutes === 0) {
+        return `${seconds}s`;
+    }
     return `${minutes}m ${seconds}s`;
 };
 
@@ -83,6 +89,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
                 completedActivitiesCount: 0,
                 totalActivitiesCount: 0,
                 playedSeriationGames: new Set<string>(),
+                gameDetails: [],
             };
         }
 
@@ -144,6 +151,24 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
                 .filter(log => SERIATION_SKILLS.includes(GAME_SKILL_MAP[log.game_name]))
                 .map(log => log.level_name)
         );
+        
+        const gameDetails = Object.values(performanceLogs.reduce((acc, log) => {
+            const key = log.level_name;
+            if (!acc[key]) {
+                acc[key] = {
+                    gameName: GAME_NAME_TRANSLATIONS[log.game_name] || log.game_name,
+                    levelName: LEVEL_NAME_TRANSLATIONS[log.level_name] || log.level_name.replace(/_/g, ' '),
+                    sessions: 0,
+                    totalTime: 0,
+                    totalErrors: 0,
+                };
+            }
+            acc[key].sessions += 1;
+            acc[key].totalTime += log.time_taken_ms;
+            acc[key].totalErrors += log.incorrect_attempts;
+            return acc;
+        }, {} as Record<string, { gameName: string; levelName: string; sessions: number; totalTime: number; totalErrors: number }>))
+        .sort((a, b) => a.gameName.localeCompare(b.gameName) || a.levelName.localeCompare(b.levelName));
 
         return {
             totalSessions: performanceLogs.length,
@@ -156,6 +181,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
             completedActivitiesCount: completedTrackableCount,
             totalActivitiesCount: totalTrackableActivities,
             playedSeriationGames,
+            gameDetails,
         };
 
     }, [performanceLogs]);
@@ -310,7 +336,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
                                             className="bg-sky-500 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold transition-all duration-500" 
                                             style={{ width: `${analysisData.generalProgress}%` }}
                                         >
-                                            {analysisData.generalProgress.toFixed(0)}%
+                                            {analysisData.generalProgress > 10 ? `${analysisData.generalProgress.toFixed(0)}%` : ''}
                                         </div>
                                     </div>
                                 </div>
@@ -326,6 +352,37 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
                                 <div className="flex items-center gap-2"><div className="w-4 h-4 bg-sky-500/50 border border-sky-700 rounded-sm"></div><span className="text-sky-800">Clasificación y Afines</span></div>
                                 <div className="flex items-center gap-2"><div className="w-4 h-4 bg-rose-500/50 border border-rose-700 rounded-sm"></div><span className="text-rose-800">Seriación</span></div>
                             </div>
+                        </div>
+                        
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-700 mb-3 text-center">Detalle de las Partidas</h3>
+                            <div className="bg-slate-50 p-3 rounded-lg border max-h-80 overflow-y-auto">
+                                <ul className="space-y-3">
+                                    {analysisData.gameDetails.map(detail => (
+                                        <li key={detail.levelName} className="p-3 bg-white rounded-md shadow-sm">
+                                            <p className="font-bold text-slate-800">{detail.gameName}</p>
+                                            <p className="text-sm text-slate-500">{detail.levelName}</p>
+                                            <div className="grid grid-cols-3 gap-2 mt-2 text-center text-xs">
+                                                <div className="bg-slate-100 p-1 rounded">
+                                                    <p className="font-bold text-sky-700 text-base">{detail.sessions}</p>
+                                                    <p className="text-slate-500">Partidas</p>
+                                                </div>
+                                                <div className="bg-slate-100 p-1 rounded">
+                                                    <p className="font-bold text-rose-700 text-base">{(detail.totalErrors / detail.sessions).toFixed(1)}</p>
+                                                    <p className="text-slate-500">Errores (prom.)</p>
+                                                </div>
+                                                <div className="bg-slate-100 p-1 rounded">
+                                                    <p className="font-bold text-green-700 text-base">{formatTime(detail.totalTime / detail.sessions)}</p>
+                                                    <p className="text-slate-500">Tiempo (prom.)</p>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                            <p className="text-xs text-slate-400 text-center mt-2 italic">
+                                Nota: El puntaje por partida no se muestra aquí, ya que el puntaje total se actualiza de forma acumulativa en tu perfil.
+                            </p>
                         </div>
                     
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

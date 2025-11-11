@@ -40,8 +40,8 @@ const SeriationGame: React.FC<SeriationGameProps> = ({ challengeType, onGoHome, 
   const [totalIncorrectAttempts, setTotalIncorrectAttempts] = useState(0);
   const gameAreaRef = useRef<HTMLDivElement>(null);
 
-  const levelId = `seriation_${challengeType.replace('-', '_')}`;
-  const gameTitle = LEVEL_NAME_TRANSLATIONS[levelId] || "Juego de Seriación";
+  const levelId = `seriation_${challengeType}`;
+  const gameTitle = LEVEL_NAME_TRANSLATIONS[levelId as keyof typeof LEVEL_NAME_TRANSLATIONS] || "Juego de Seriación";
 
   const instructionText = useMemo(() => {
     switch (challengeType) {
@@ -138,7 +138,16 @@ const SeriationGame: React.FC<SeriationGameProps> = ({ challengeType, onGoHome, 
       newDropped[slotIndex] = droppedRod;
       return newDropped;
     });
-    setChoicePile(prev => prev.filter(r => r.id !== droppedRod.id));
+    
+    setChoicePile(prev => {
+        const indexToRemove = prev.findIndex(r => r.id === droppedRod.id);
+        if (indexToRemove > -1) {
+            const newPile = [...prev];
+            newPile.splice(indexToRemove, 1);
+            return newPile;
+        }
+        return prev;
+    });
   }, [droppedRods, feedback]);
   
   const handleReturnRod = (slotIndex: number) => {
@@ -222,19 +231,20 @@ const SeriationGame: React.FC<SeriationGameProps> = ({ challengeType, onGoHome, 
         total_items: TOTAL_ROUNDS,
     });
     
-    if (!completedActivities.has(levelId)) {
-      const achievementMap: Record<SeriationChallengeType, string> = {
+    const achievementMap: Record<SeriationChallengeType, string> = {
         'ascending': 'SERIATION_ASC_WIN',
         'descending': 'SERIATION_DESC_WIN',
         'abc-pattern': 'SERIATION_ABC_WIN',
         'growth-pattern': 'SERIATION_GROWTH_WIN'
-      };
-      const points = 250 - (totalIncorrectAttempts * 10);
-      setPointsAwarded(points);
-      if (points > 0) {
+    };
+    const points = 250 - (totalIncorrectAttempts * 10);
+    setPointsAwarded(points);
+    if (points > 0) {
         addScore(points, `Completaste ${gameTitle}`);
-      }
-      onUnlockAchievement(achievementMap[challengeType]);
+    }
+    
+    if (!completedActivities.has(levelId)) {
+        onUnlockAchievement(achievementMap[challengeType]);
     }
   };
 
@@ -343,8 +353,8 @@ const SeriationGame: React.FC<SeriationGameProps> = ({ challengeType, onGoHome, 
           className="w-full max-w-md p-4 bg-rose-50 rounded-2xl shadow-inner flex flex-wrap items-end justify-center gap-4 transition-all duration-300"
           style={{ height: `${choicePileMaxHeight}px` }}
         >
-          {choicePile.map(rod => (
-            <div key={rod.id} className="flex flex-col items-center justify-end">
+          {choicePile.map((rod, index) => (
+            <div key={`${rod.id}-${index}`} className="flex flex-col items-center justify-end">
               <CuisenaireRod rod={rod} />
             </div>
           ))}

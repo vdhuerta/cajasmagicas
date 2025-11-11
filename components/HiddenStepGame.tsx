@@ -42,7 +42,7 @@ const HiddenStepGame: React.FC<HiddenStepGameProps> = ({ onGoHome, onUnlockAchie
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const levelId = 'hidden_step_game';
-  const gameTitle = LEVEL_NAME_TRANSLATIONS[levelId] || 'El Peldaño Escondido';
+  const gameTitle = LEVEL_NAME_TRANSLATIONS[levelId as keyof typeof LEVEL_NAME_TRANSLATIONS] || 'El Peldaño Escondido';
   const instructionText = '¡Falta un peldaño en la escalera! Mira la secuencia y arrastra la pieza correcta para completar el espacio.';
 
   const startNewRound = useCallback(() => {
@@ -101,17 +101,21 @@ const HiddenStepGame: React.FC<HiddenStepGameProps> = ({ onGoHome, onUnlockAchie
     }
   }, [round, startNewRound, isGameOver]);
   
-  const handleDrop = useCallback((droppedRod: CuisenaireRodType) => {
+  const handleDrop = useCallback((newlyDroppedRod: CuisenaireRodType) => {
     if (feedback?.type === 'correct') return;
-    
-    // Return the previously dropped rod to the pile if there was one
-    if (droppedRod) {
-        const rodToReturn = droppedRod;
-        setChoicePile(prev => shuffleArray([...prev.filter(r => r.id !== droppedRod.id), rodToReturn]));
-    }
-    
-    setDroppedRod(droppedRod);
-    setChoicePile(prev => prev.filter(r => r.id !== droppedRod.id));
+
+    // A new drop replaces the old one, which goes back to the choice pile.
+    setChoicePile(prev => {
+        // Remove the newly dropped rod from the pile
+        const newPile = prev.filter(r => r.id !== newlyDroppedRod.id);
+        // If there was a rod in the slot already, add it back to the pile
+        if (droppedRod) {
+            newPile.push(droppedRod);
+        }
+        return shuffleArray(newPile);
+    });
+
+    setDroppedRod(newlyDroppedRod);
   }, [droppedRod, feedback]);
 
   useEffect(() => {
@@ -171,13 +175,14 @@ const HiddenStepGame: React.FC<HiddenStepGameProps> = ({ onGoHome, onUnlockAchie
         total_items: TOTAL_ROUNDS,
     });
     
-    if (!completedActivities.has(levelId)) {
-      const points = 300 - (totalIncorrectAttempts * 15);
-      setPointsAwarded(points);
-      if (points > 0) {
+    const points = 300 - (totalIncorrectAttempts * 15);
+    setPointsAwarded(points);
+    if (points > 0) {
         addScore(points, `Completaste ${gameTitle}`);
-      }
-      onUnlockAchievement('SERIATION_HIDDEN_STEP_WIN');
+    }
+
+    if (!completedActivities.has(levelId)) {
+        onUnlockAchievement('SERIATION_HIDDEN_STEP_WIN');
     }
   };
 
