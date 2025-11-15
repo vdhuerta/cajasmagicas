@@ -6,7 +6,9 @@ interface EmailPayload {
     body: string;
 }
 
-export const sendEmail = async ({ to, subject, body }: EmailPayload): Promise<{ message: string }> => {
+const isRunningInAiStudio = !!(window as any).aistudio;
+
+const sendEmailViaFunction = async ({ to, subject, body }: EmailPayload): Promise<{ message: string }> => {
     const functionUrl = '/.netlify/functions/send-email';
 
     try {
@@ -35,5 +37,27 @@ export const sendEmail = async ({ to, subject, body }: EmailPayload): Promise<{ 
     } catch (error) {
         console.error(`Error en el servicio de email:`, error);
         throw error;
+    }
+};
+
+const sendEmailDirectly = async ({ to, subject, body }: EmailPayload): Promise<{ message: string }> => {
+    console.log(`--- SIMULANDO ENVÍO DE CORREO (Modo AI Studio) ---`);
+    console.log(`Para: ${to}`);
+    console.log(`Asunto: ${subject}`);
+    console.log(`Cuerpo: ${body}`);
+    console.log(`-----------------------------------------------`);
+
+    // Simular un pequeño retraso de red
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    return { message: 'Correo enviado con éxito (simulado).' };
+};
+
+
+export const sendEmail = async (payload: EmailPayload): Promise<{ message: string }> => {
+    if (isRunningInAiStudio) {
+        return sendEmailDirectly(payload);
+    } else {
+        return sendEmailViaFunction(payload);
     }
 };

@@ -16,7 +16,7 @@ export const PEDAGOGICAL_KNOWLEDGE_BASE: Record<string, {
         opportunity: { message: string; recommendation: string; };
     };
 }> = {
-    'Clasificación': {
+    'Clasificación por Atributos': {
         description: 'Habilidad para agrupar objetos según atributos comunes como color, forma o tamaño.',
         games: ['Classification', 'VennDiagram', 'TreasureSort'],
         feedbackRules: {
@@ -36,7 +36,7 @@ export const PEDAGOGICAL_KNOWLEDGE_BASE: Record<string, {
     },
     'Seriación Ordinal': {
         description: 'Habilidad para ordenar objetos según una magnitud creciente o decreciente (tamaño, valor).',
-        games: ['Seriation'],
+        games: ['Seriation', 'KiteGame'],
         feedbackRules: {
             strength: {
                 message: "Demuestra una sólida comprensión del orden cuantitativo. Ordena secuencias de tamaño o valor con rapidez y precisión.",
@@ -144,28 +144,36 @@ export const PEDAGOGICAL_KNOWLEDGE_BASE: Record<string, {
     }
 };
 
-// FIX: Export GAME_SKILL_MAP to be used across the application, resolving import errors.
-// Deriva el mapa de juego a habilidad para un acceso rápido.
-export const GAME_SKILL_MAP: Record<string, string> = Object.entries(PEDAGOGICAL_KNOWLEDGE_BASE)
-    .reduce((acc, [skill, data]) => {
-        data.games.forEach(game => {
-            acc[game] = skill;
-        });
-        return acc;
-    }, {} as Record<string, string>);
+// ARQUITECTURA NUEVA: Mapa único que sirve como fuente de verdad para mapear CADA actividad a su habilidad pedagógica.
+// Utiliza `level_name` como la clave única para cada actividad registrable.
+export const ACTIVITY_SKILL_MAP: Record<string, string> = {
+    // Noción de Clasificación y Afines
+    'classification_1': 'Clasificación por Atributos',
+    'classification_2': 'Clasificación por Atributos',
+    'classification_3': 'Clasificación por Atributos',
+    'classification_4': 'Clasificación por Atributos',
+    'classification_expert': 'Clasificación por Atributos',
+    'matching_game': 'Memoria y Atención',
+    'odd_one_out_game': 'Atención y Percepción',
+    'venn_diagram': 'Clasificación por Atributos',
+    'inventory_basic': 'Conteo y Correspondencia',
+    'inventory_medium': 'Conteo y Correspondencia',
+    'inventory_expert': 'Conteo y Correspondencia',
+    'treasure_sort_game': 'Clasificación por Atributos',
 
-// Nuevo mapa para mapear niveles específicos a sub-habilidades de seriación.
-export const LEVEL_SKILL_MAP: Record<string, string> = {
+    // Noción de Seriación
     'seriation_ascending': 'Seriación Ordinal',
     'seriation_descending': 'Seriación Ordinal',
     'seriation_growth-pattern': 'Seriación Ordinal',
+    'seriation_kite_game': 'Seriación Ordinal',
     'seriation_abc-pattern': 'Seriación por Patrones',
     'color_snake_game': 'Seriación por Patrones',
     'hidden_step_game': 'Completar Secuencias',
 };
 
+
 // Habilidades agrupadas para los paneles de desempeño.
-export const CLASSIFICATION_SKILLS = ['Clasificación', 'Memoria y Atención', 'Atención y Percepción', 'Conteo y Correspondencia'];
+export const CLASSIFICATION_SKILLS = ['Clasificación por Atributos', 'Memoria y Atención', 'Atención y Percepción', 'Conteo y Correspondencia'];
 export const SERIATION_SUB_SKILLS = ['Seriación Ordinal', 'Seriación por Patrones', 'Completar Secuencias'];
 
 
@@ -180,6 +188,7 @@ export const GAME_NAME_TRANSLATIONS: Record<string, string> = {
     'Seriation': 'Juegos de Seriación',
     'HiddenStep': 'El Peldaño Escondido',
     'ColorSnake': 'La Serpiente de Colores',
+    'KiteGame': 'SD El Volantín',
 };
 
 // Traduce los IDs de los niveles a español para la UI.
@@ -202,6 +211,7 @@ export const LEVEL_NAME_TRANSLATIONS: Record<string, string> = {
     'seriation_growth-pattern': 'Saltos de Gigante',
     'hidden_step_game': 'Partida Única',
     'color_snake_game': 'Partida Única',
+    'seriation_kite_game': 'SD El Volantín',
 };
 
 export const DIRECTIVA_SERIES = {
@@ -485,5 +495,6 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
     { id: 'SERIATION_GROWTH_WIN', name: 'Saltador Experto', description: 'Completa el juego Saltos de Gigante.' },
     { id: 'SERIATION_HIDDEN_STEP_WIN', name: 'Detective de Secuencias', description: 'Completa el juego El Peldaño Escondido.' },
     { id: 'SERIATION_COLOR_SNAKE_WIN', name: 'Encantador de Serpientes', description: 'Completa el juego La Serpiente de Colores.' },
+    { id: 'SERIATION_KITE_WIN', name: 'Rescatista de Volantines', description: 'Completa la situación didáctica El Volantín.' },
     { id: 'GEMINI_NAME', name: '¡Poder Mágico!', description: 'Usa la magia de la IA para nombrar una caja.' },
 ];

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { PerformanceLog, UserProfile } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { DocumentReportIcon } from './icons/DocumentReportIcon';
-import { PEDAGOGICAL_KNOWLEDGE_BASE, GAME_NAME_TRANSLATIONS, LEVEL_NAME_TRANSLATIONS, GAME_SKILL_MAP, LEVEL_SKILL_MAP, CLASSIFICATION_SKILLS, SERIATION_SUB_SKILLS } from '../constants';
+import { PEDAGOGICAL_KNOWLEDGE_BASE, GAME_NAME_TRANSLATIONS, LEVEL_NAME_TRANSLATIONS, ACTIVITY_SKILL_MAP, CLASSIFICATION_SKILLS, SERIATION_SUB_SKILLS } from '../constants';
 import { StarIcon } from './icons/StarIcon';
 import { WarningIcon } from './icons/WarningIcon';
 import RadarChart from './RadarChart';
@@ -31,6 +31,48 @@ const formatTime = (ms: number): string => {
     }
     return `${minutes}m ${seconds}s`;
 };
+
+const ClassificationMathSuggestions: React.FC<{ playedClassificationGames: Set<string> }> = ({ playedClassificationGames }) => {
+    const suggestions = [];
+
+    if (playedClassificationGames.has('VennDiagram')) {
+        suggestions.push({
+            title: "Teoría de Conjuntos",
+            content: "Has practicado con 'Diagramas de Venn', una herramienta fundamental en la Teoría de Conjuntos. La 'poza mágica' donde se cruzan los arroyos representa la intersección (A ∩ B), un concepto clave en lógica y matemática que se usa para encontrar elementos que comparten múltiples propiedades."
+        });
+    }
+    if (playedClassificationGames.has('OddOneOut')) {
+        suggestions.push({
+            title: "Lógica Proposicional",
+            content: "Al encontrar al 'intruso', estás trabajando la habilidad de negar un atributo y definir el complemento de un conjunto. Si la regla es 'ser rojo', el intruso es 'NO rojo'. Esta es la base de la lógica proposicional ('p' y 'no p'), fundamental en computación y matemática avanzada."
+        });
+    }
+    if (playedClassificationGames.has('Classification') || playedClassificationGames.has('TreasureSort')) {
+        suggestions.push({
+            title: "Conjunción Lógica ('Y')",
+            content: "Al clasificar por dos o más criterios (ej. 'botones rojos'), estás explorando la conjunción lógica. Defines un conjunto de elementos que cumplen la propiedad A y la propiedad B. Este es un pilar del pensamiento analítico y la base para filtrar datos en bases de datos y programación."
+        });
+    }
+
+    if (suggestions.length === 0) {
+        return <p className="text-center text-slate-500 p-4 text-sm">Juega a juegos como 'El Cruce Mágico' o 'El Duende Despistado' para desbloquear sugerencias matemáticas avanzadas.</p>;
+    }
+
+    return (
+        <div className="space-y-4">
+            {suggestions.map((suggestion, index) => (
+                <div key={index} className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-200 flex items-center justify-center mt-1"><LightbulbIcon className="w-4 h-4 text-violet-700"/></div>
+                    <div>
+                        <strong className="text-violet-800">{suggestion.title}</strong>
+                        <p className="text-sm text-slate-600">{suggestion.content}</p>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
 
 const MathSuggestions: React.FC<{ playedSeriationGames: Set<string> }> = ({ playedSeriationGames }) => {
     const suggestions = [];
@@ -88,6 +130,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
                 generalProgress: 0,
                 completedActivitiesCount: 0,
                 totalActivitiesCount: 0,
+                playedClassificationGames: new Set<string>(),
                 playedSeriationGames: new Set<string>(),
                 gameDetails: [],
             };
@@ -98,17 +141,23 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
         
         const skillData: Record<string, { totalIncorrect: number; count: number; totalItems: number }> = {};
         
+        // Pre-initialize all skills to ensure they appear on the chart
+        [...CLASSIFICATION_SKILLS, ...SERIATION_SUB_SKILLS].forEach(skill => {
+            skillData[skill] = { totalIncorrect: 0, count: 0, totalItems: 0 };
+        });
+
         performanceLogs.forEach(log => {
-            const skill = LEVEL_SKILL_MAP[log.level_name] || GAME_SKILL_MAP[log.game_name] || 'Otros';
-            if (!skillData[skill]) {
-                skillData[skill] = { totalIncorrect: 0, count: 0, totalItems: 0 };
+            const skill = ACTIVITY_SKILL_MAP[log.level_name];
+            if (skill && skillData[skill]) {
+                skillData[skill].totalIncorrect += log.incorrect_attempts;
+                skillData[skill].count += 1;
+                skillData[skill].totalItems += log.total_items || 0;
             }
-            skillData[skill].totalIncorrect += log.incorrect_attempts;
-            skillData[skill].count += 1;
-            skillData[skill].totalItems += log.total_items || 0;
         });
         
-        const classificationPerformanceData = CLASSIFICATION_SKILLS.map(skill => {
+        const classificationDisplaySkills = CLASSIFICATION_SKILLS.filter(s => s !== 'Clasificación por Atributos');
+
+        const classificationPerformanceData = classificationDisplaySkills.map(skill => {
             const data = skillData[skill];
             const value = (data && data.totalItems > 0) ? Math.max(0, (data.totalItems - data.totalIncorrect) / data.totalItems) : 0;
             return { label: skill, value };
@@ -132,19 +181,22 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
             const knowledge = PEDAGOGICAL_KNOWLEDGE_BASE[skill];
             if (knowledge) {
                 const data = skillData[skill];
-                const precision = (data && data.totalItems > 0) ? (data.totalItems - data.totalIncorrect) / data.totalItems : 0;
-                
-                if (precision >= 0.9) {
-                    pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.strength, type: 'strength' });
-                } else if (precision >= 0.6) {
-                    pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.consolidating, type: 'consolidating' });
-                } else {
-                    pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.opportunity, type: 'opportunity' });
+                 // Only generate insights for skills that have been practiced
+                if (data && data.count > 0) {
+                    const precision = data.totalItems > 0 ? (data.totalItems - data.totalIncorrect) / data.totalItems : 0;
+                    
+                    if (precision >= 0.9) {
+                        pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.strength, type: 'strength' });
+                    } else if (precision >= 0.6) {
+                        pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.consolidating, type: 'consolidating' });
+                    } else {
+                        pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.opportunity, type: 'opportunity' });
+                    }
                 }
             }
         });
         
-        const classificationInsights = pedagogicalInsights.filter(i => CLASSIFICATION_SKILLS.includes(i.skill));
+        const classificationInsights = pedagogicalInsights.filter(i => classificationDisplaySkills.includes(i.skill));
         const seriationInsights = pedagogicalInsights.filter(i => SERIATION_SUB_SKILLS.includes(i.skill));
         
         const completedActivitiesSet = new Set(performanceLogs.map(log => log.level_name));
@@ -155,29 +207,44 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
 
         const generalProgress = totalTrackableActivities > 0 ? (completedTrackableCount / totalTrackableActivities) * 100 : 0;
         
+        const playedClassificationGames = new Set(
+            performanceLogs
+                .filter(log => {
+                    const skill = ACTIVITY_SKILL_MAP[log.level_name];
+                    return skill && CLASSIFICATION_SKILLS.includes(skill);
+                })
+                .map(log => log.game_name)
+        );
+
         const playedSeriationGames = new Set(
             performanceLogs
-                .filter(log => SERIATION_SUB_SKILLS.includes(LEVEL_SKILL_MAP[log.level_name]))
+                .filter(log => {
+                    const skill = ACTIVITY_SKILL_MAP[log.level_name];
+                    return skill && SERIATION_SUB_SKILLS.includes(skill);
+                })
                 .map(log => log.level_name)
         );
         
-        const gameDetails = Object.values(performanceLogs.reduce((acc, log) => {
-            const key = log.level_name;
-            if (!acc[key]) {
-                acc[key] = {
-                    gameName: GAME_NAME_TRANSLATIONS[log.game_name] || log.game_name,
-                    levelName: LEVEL_NAME_TRANSLATIONS[log.level_name] || log.level_name.replace(/_/g, ' '),
-                    sessions: 0,
-                    totalTime: 0,
-                    totalErrors: 0,
-                };
-            }
-            acc[key].sessions += 1;
-            acc[key].totalTime += log.time_taken_ms;
-            acc[key].totalErrors += log.incorrect_attempts;
-            return acc;
-        }, {} as Record<string, { gameName: string; levelName: string; sessions: number; totalTime: number; totalErrors: number }>))
-        .sort((a, b) => a.gameName.localeCompare(b.gameName) || a.levelName.localeCompare(b.levelName));
+        type GameDetailsAccumulator = Record<string, { gameName: string; levelName: string; sessions: number; totalTime: number; totalErrors: number; }>;
+        // FIX: Replaced the generic on the `reduce` call with a type assertion on the initial value to resolve a TypeScript error.
+        const gameDetails = (Object.values(
+            performanceLogs.reduce((acc, log) => {
+                const key = log.level_name;
+                if (!acc[key]) {
+                    acc[key] = {
+                        gameName: GAME_NAME_TRANSLATIONS[log.game_name] || log.game_name,
+                        levelName: LEVEL_NAME_TRANSLATIONS[log.level_name] || log.level_name.replace(/_/g, ' '),
+                        sessions: 0,
+                        totalTime: 0,
+                        totalErrors: 0,
+                    };
+                }
+                acc[key].sessions += 1;
+                acc[key].totalTime += log.time_taken_ms;
+                acc[key].totalErrors += log.incorrect_attempts;
+                return acc;
+            }, {} as GameDetailsAccumulator)
+        ) as { gameName: string; levelName: string; sessions: number; totalTime: number; totalErrors: number; }[]).sort((a, b) => a.gameName.localeCompare(b.gameName) || a.levelName.localeCompare(b.levelName));
 
         return {
             totalSessions: performanceLogs.length,
@@ -189,6 +256,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
             generalProgress,
             completedActivitiesCount: completedTrackableCount,
             totalActivitiesCount: totalTrackableActivities,
+            playedClassificationGames,
             playedSeriationGames,
             gameDetails,
         };
@@ -398,11 +466,14 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ isOpen, onC
                             <div>
                                 <h3 className="text-xl font-bold text-slate-700 mb-3">Análisis Pedagógico: Clasificación</h3>
                                 {getInsightsForCategory(analysisData.classificationInsights)}
+                                <h3 className="text-xl font-bold text-slate-700 mb-3 mt-6">Sugerencias desde la Matemática</h3>
+                                <div className="bg-violet-50 p-4 rounded-lg border border-violet-200">
+                                    <ClassificationMathSuggestions playedClassificationGames={analysisData.playedClassificationGames} />
+                                </div>
                             </div>
                             <div>
                                 <h3 className="text-xl font-bold text-slate-700 mb-3">Análisis Pedagógico: Seriación</h3>
                                 {getInsightsForCategory(analysisData.seriationInsights)}
-                                
                                 <h3 className="text-xl font-bold text-slate-700 mb-3 mt-6">Sugerencias desde la Matemática</h3>
                                 <div className="bg-violet-50 p-4 rounded-lg border border-violet-200">
                                     <MathSuggestions playedSeriationGames={analysisData.playedSeriationGames} />

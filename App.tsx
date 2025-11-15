@@ -25,6 +25,8 @@ import { CuisenaireIcon } from './components/icons/CuisenaireIcon';
 import { StairsIcon } from './components/icons/StairsIcon';
 import { SnakeIcon } from './components/icons/SnakeIcon';
 import { StairsDownIcon } from './components/icons/StairsDownIcon';
+import { KiteIcon } from './components/icons/KiteIcon';
+import { LockIcon } from './components/icons/LockIcon';
 
 // Lazy load components for better performance
 // FIX: Replaced invalid alias 'a' with 'React'. This fix is applied to all React hooks and components below.
@@ -37,6 +39,7 @@ const TreasureSortGame = React.lazy(() => import('./components/TreasureSortGame'
 const SeriationGame = React.lazy(() => import('./components/SeriationGame'));
 const HiddenStepGame = React.lazy(() => import('./components/HiddenStepGame'));
 const ColorSnakeGame = React.lazy(() => import('./components/ColorSnakeGame'));
+const KiteGame = React.lazy(() => import('./components/KiteGame'));
 const Achievements = React.lazy(() => import('./components/Achievements'));
 const Menu = React.lazy(() => import('./components/Menu'));
 const ClassificationLevelModal = React.lazy(() => import('./components/ClassificationLevelModal'));
@@ -53,7 +56,7 @@ const PerformanceDashboard = React.lazy(() => import('./components/PerformanceDa
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 
 
-type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort' | 'seriation-games' | 'seriation' | 'hidden-step' | 'color-snake';
+type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort' | 'seriation-games' | 'seriation' | 'hidden-step' | 'color-snake' | 'kite-game';
 
 const GameLoading: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center">
@@ -104,23 +107,68 @@ const App: React.FC = () => {
 
   const unseenLogsCount = activityLog.filter(log => !log.seen).length;
   
+  const logActivity = React.useCallback((message: string, type: ActivityLogType, pointsEarned?: number) => {
+      const newEntry: ActivityLogEntry = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          message,
+          type,
+          seen: isLogOpen,
+          pointsEarned,
+      };
+      setActivityLog(prev => [newEntry, ...prev]);
+  }, [isLogOpen]);
+
   const navigate = async (game: Game | 'ranking') => {
     setIsMenuOpen(false); // Close menu immediately for better UX
     if (game === 'ranking') {
         if (!supabase) return;
 
-        const { data: users, error } = await supabase
+        // Fetch top 100 users for the main ranking
+        const { data: topUsersData, error } = await supabase
           .from('usuarios')
           .select('id, firstName, lastName, career, score')
           .order('score', { ascending: false })
-          .limit(20); // Changed from 50 to 20
+          .limit(100);
         
         if (error) {
           console.error("Error fetching ranking:", error.message);
-          // Don't show the modal if there's an error.
         } else {
-          setAllUsers(users as UserProfile[]);
-          setShowRanking(true); // Only show modal on success
+          let users = topUsersData as UserProfile[];
+          
+          // If the current user is logged in but not in the top 100, fetch their rank separately.
+          if (currentUser && !users.some(u => u.id === currentUser.id)) {
+              // 1. Get the user's most up-to-date score.
+              const { data: userScoreData, error: scoreError } = await supabase
+                  .from('usuarios')
+                  .select('score')
+                  .eq('id', currentUser.id)
+                  .single();
+
+              if (!scoreError && userScoreData) {
+                  const currentUserScore = userScoreData.score;
+
+                  // 2. Count how many users have a higher score.
+                  const { count: higherRankCount, error: countError } = await supabase
+                      .from('usuarios')
+                      .select('*', { count: 'exact', head: true })
+                      .gt('score', currentUserScore);
+                  
+                  if (!countError && higherRankCount !== null) {
+                      // 3. Construct the user object with their calculated rank.
+                      const currentUserWithRank: UserProfile = {
+                          ...currentUser,
+                          score: currentUserScore,
+                          rank: higherRankCount + 1,
+                      };
+                      // 4. Add them to the list to be displayed.
+                      users.push(currentUserWithRank);
+                  }
+              }
+          }
+          
+          setAllUsers(users);
+          setShowRanking(true);
         }
         logActivity('Viendo la Tabla de Clasificación', 'system');
         return;
@@ -203,7 +251,7 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
         console.error("A critical error occurred while fetching user profile:", e.message);
         setCurrentUser(null);
     }
-  }, []);
+  }, [logActivity]);
   
   
   // Fetch user's completed activities from performance logs when user changes
@@ -272,92 +320,97 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
   }, [activityLog, currentUser]);
 
   React.useEffect(() => {
-    let draggedElement: HTMLElement | null = null;
-    let draggedBlockData: string | null = null;
+    let draggedEl: HTMLElement | null = null;
+    let blockData: string | null = null;
+    let startX = 0, startY = 0;
     let lastDropTarget: HTMLElement | null = null;
 
-    const getDraggable = (target: EventTarget | null): HTMLElement | null => {
-        if (!(target instanceof HTMLElement)) return null;
-        return target.closest('[draggable="true"]');
-    };
-    
-    const getDropTarget = (x: number, y: number): HTMLElement | null => {
-        const elementUnderTouch = document.elementFromPoint(x, y);
-        if (!(elementUnderTouch instanceof HTMLElement)) return null;
-        return elementUnderTouch.closest('[data-droptarget="true"]');
-    }
+    const touchStart = (e: TouchEvent) => {
+        const target = (e.target as HTMLElement).closest<HTMLElement>('[draggable="true"]');
+        if (!target) return;
 
-    const touchStartHandler = (event: TouchEvent) => {
-        const draggable = getDraggable(event.target);
-        if (draggable) {
-            draggedElement = draggable;
-            draggedBlockData = draggable.getAttribute('data-block');
-            draggedElement.style.opacity = '0.5';
-            draggedElement.style.transform = 'scale(1.1)';
-            draggedElement.style.zIndex = '1000';
-            document.addEventListener('touchmove', touchMoveHandler, { passive: false });
-            document.addEventListener('touchend', touchEndHandler, { passive: false });
+        e.preventDefault();
+
+        draggedEl = target;
+        blockData = target.dataset.block || null;
+        
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+
+        draggedEl.style.transition = 'none';
+        draggedEl.style.zIndex = '1000';
+        draggedEl.style.transform = 'scale(1.1)';
+        draggedEl.style.opacity = '0.7';
+
+        document.addEventListener('touchmove', touchMove, { passive: false });
+        document.addEventListener('touchend', touchEnd, { passive: false });
+    };
+
+    const touchMove = (e: TouchEvent) => {
+        if (!draggedEl) return;
+        e.preventDefault();
+
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - startX;
+        const deltaY = touch.clientY - startY;
+        
+        // Apply both translate and scale in the correct order
+        draggedEl.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(1.1)`;
+
+        // Find drop target under the finger
+        draggedEl.style.pointerEvents = 'none';
+        const elUnder = document.elementFromPoint(touch.clientX, touch.clientY);
+        draggedEl.style.pointerEvents = 'auto';
+
+        const currentDropTarget = elUnder?.closest<HTMLElement>('[data-droptarget="true"]');
+
+        if (lastDropTarget !== currentDropTarget) {
+            lastDropTarget?.dispatchEvent(new CustomEvent('touchdragleave', { bubbles: true }));
+            currentDropTarget?.dispatchEvent(new CustomEvent('touchdragenter', { bubbles: true }));
+            lastDropTarget = currentDropTarget || null;
         }
     };
 
-    const touchMoveHandler = (event: TouchEvent) => {
-        if (!draggedElement) return;
-        event.preventDefault(); 
-        const touch = event.touches[0];
-        const currentDropTarget = getDropTarget(touch.clientX, touch.clientY);
-        if (lastDropTarget && lastDropTarget !== currentDropTarget) {
-            lastDropTarget.dispatchEvent(new CustomEvent('touchdragleave', { bubbles: true }));
-        }
-        if (currentDropTarget && currentDropTarget !== lastDropTarget) {
-            currentDropTarget.dispatchEvent(new CustomEvent('touchdragenter', { bubbles: true }));
-        }
-        lastDropTarget = currentDropTarget;
-    };
+    const touchEnd = (e: TouchEvent) => {
+        if (!draggedEl) return;
 
-    const touchEndHandler = (event: TouchEvent) => {
-        if (draggedElement) {
-            draggedElement.style.opacity = '1';
-            draggedElement.style.transform = 'scale(1)';
-            draggedElement.style.zIndex = '';
-            const touch = event.changedTouches[0];
-            const dropTarget = getDropTarget(touch.clientX, touch.clientY);
-            if (dropTarget && draggedBlockData) {
-                const dropEvent = new CustomEvent('touchdrop', {
-                    bubbles: true,
-                    detail: { blockData: draggedBlockData }
-                });
-                dropTarget.dispatchEvent(dropEvent);
+        if (lastDropTarget && blockData) {
+            lastDropTarget.dispatchEvent(new CustomEvent('touchdrop', { bubbles: true, detail: { blockData } }));
+        }
+
+        // Reset styles for snap-back animation
+        draggedEl.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+        draggedEl.style.transform = 'translate(0, 0) scale(1)';
+        draggedEl.style.opacity = '1';
+        
+        // After animation, remove transition and z-index to prevent conflicts
+        setTimeout(() => {
+            if (draggedEl) {
+                draggedEl.style.transition = '';
+                draggedEl.style.zIndex = '';
             }
-            if(lastDropTarget) {
-                 lastDropTarget.dispatchEvent(new CustomEvent('touchdragleave', { bubbles: true }));
-            }
-        }
-        document.removeEventListener('touchmove', touchMoveHandler);
-        document.removeEventListener('touchend', touchEndHandler);
-        draggedElement = null;
-        draggedBlockData = null;
+        }, 200);
+
+        lastDropTarget?.dispatchEvent(new CustomEvent('touchdragleave', { bubbles: true }));
+        
+        // Clean up
+        draggedEl = null;
+        blockData = null;
         lastDropTarget = null;
+        
+        document.removeEventListener('touchmove', touchMove);
+        document.removeEventListener('touchend', touchEnd);
     };
 
-    document.addEventListener('touchstart', touchStartHandler, { passive: false });
+    document.addEventListener('touchstart', touchStart, { passive: false });
     return () => {
-        document.removeEventListener('touchstart', touchStartHandler);
-        document.removeEventListener('touchmove', touchMoveHandler);
-        document.removeEventListener('touchend', touchEndHandler);
+        document.removeEventListener('touchstart', touchStart);
+        // Ensure listeners are removed if component unmounts during a drag
+        document.removeEventListener('touchmove', touchMove);
+        document.removeEventListener('touchend', touchEnd);
     };
   }, []);
-
-  const logActivity = (message: string, type: ActivityLogType, pointsEarned?: number) => {
-      const newEntry: ActivityLogEntry = {
-          id: Date.now(),
-          timestamp: new Date().toISOString(),
-          message,
-          type,
-          seen: isLogOpen,
-          pointsEarned,
-      };
-      setActivityLog(prev => [newEntry, ...prev]);
-  };
 
   const addScore = async (points: number, message: string) => {
     if (!supabase || !currentUser || points <= 0) return;
@@ -478,6 +531,7 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
       'treasure-sort': 'El Baúl de los Tesoros',
       'hidden-step': 'El Peldaño Escondido',
       'color-snake': 'La Serpiente de Colores',
+      'kite-game': 'SD El Volantín',
       'home': 'Inicio',
       'classification-games': 'Juegos de Clasificación',
       'classification': 'Clasificación',
@@ -767,6 +821,15 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
       theme: { text: 'text-purple-800', buttonBg: 'bg-purple-500', buttonHoverBg: 'hover:bg-purple-600', iconText: 'text-purple-500', bg: 'bg-purple-50', audioHover: 'hover:bg-purple-100', audioText: 'text-purple-700' },
       onStart: () => handleStartGame('color-snake'),
     },
+    'seriation_kite_game': {
+      title: "El Volantín Atrapado",
+      story: "¡Ayuda a Jorge a construir la estructura correcta para alcanzar su volantín! Debes encontrar el atributo 'oculto' de las regletas para ordenarlas.",
+      instructions: "Arrastra las regletas al área de construcción para formar una escalera horizontal. La estructura debe tener coherencia para que Jorge pueda subir. ¡Ordena de la más grande a la más pequeña!",
+      buttonText: "¡A rescatar el volantín!",
+      Icon: KiteIcon,
+      theme: { text: 'text-cyan-800', buttonBg: 'bg-cyan-500', buttonHoverBg: 'hover:bg-cyan-600', iconText: 'text-cyan-500', bg: 'bg-cyan-50', audioHover: 'hover:bg-cyan-100', audioText: 'text-cyan-700' },
+      onStart: () => handleStartGame('kite-game'),
+    },
   };
 
   const renderGame = () => {
@@ -789,6 +852,8 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
         return <HiddenStepGame onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'color-snake':
         return <ColorSnakeGame onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
+      case 'kite-game':
+        return <KiteGame onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'achievements':
         return <Achievements unlockedAchievements={currentUser?.unlockedAchievements || {}} />;
       case 'seriation-games':
@@ -798,47 +863,49 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
         const isGrowthCompleted = completedActivities.has('seriation_growth-pattern');
         const isHiddenStepCompleted = completedActivities.has('hidden_step_game');
         const isColorSnakeCompleted = completedActivities.has('color_snake_game');
+        const isKiteGameCompleted = completedActivities.has('seriation_kite_game');
+        const isKiteGameDisabled = !currentUser;
         return (
           <div className="flex flex-col items-center justify-center h-full text-center">
              <h1 className="text-5xl font-bold text-sky-700 mb-4">Juegos de Seriación</h1>
              <p className="text-xl text-slate-600 max-w-2xl md:max-w-4xl mb-12">¡Aprende a ordenar objetos en secuencias lógicas!</p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <button onClick={() => setIntroGameKey('seriation_ascending')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isAscendingCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-sky-400 hover:bg-sky-500'}`}>
+              <button onClick={() => setIntroGameKey('seriation_ascending')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 w-72 ${isAscendingCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-sky-400 hover:bg-sky-500'}`}>
                   {isAscendingCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
                   <div className="flex items-center justify-center gap-3">
                     <StairsIcon className="w-7 h-7" />
                     <span className="font-bold">La Escalera Creciente</span>
                   </div>
               </button>
-               <button onClick={() => setIntroGameKey('seriation_descending')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isDescendingCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-indigo-400 hover:bg-indigo-500'}`}>
+               <button onClick={() => setIntroGameKey('seriation_descending')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 w-72 ${isDescendingCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-indigo-400 hover:bg-indigo-500'}`}>
                   {isDescendingCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
                   <div className="flex items-center justify-center gap-3">
                     <StairsDownIcon className="w-7 h-7" />
                     <span className="font-bold">La Escalera Inversa</span>
                   </div>
               </button>
-               <button onClick={() => setIntroGameKey('seriation_abc')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isAbcCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-rose-400 hover:bg-rose-500'}`}>
+               <button onClick={() => setIntroGameKey('seriation_abc')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 w-72 ${isAbcCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-rose-400 hover:bg-rose-500'}`}>
                   {isAbcCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
                   <div className="flex items-center justify-center gap-3">
                     <CuisenaireIcon className="w-7 h-7" />
                     <span className="font-bold">El Muro Tricolor</span>
                   </div>
               </button>
-              <button onClick={() => setIntroGameKey('seriation_growth')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isGrowthCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-emerald-400 hover:bg-emerald-500'}`}>
+              <button onClick={() => setIntroGameKey('seriation_growth')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 w-72 ${isGrowthCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-emerald-400 hover:bg-emerald-500'}`}>
                   {isGrowthCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
                   <div className="flex items-center justify-center gap-3">
                     <CuisenaireIcon className="w-7 h-7" />
                     <span className="font-bold">Saltos de Gigante</span>
                   </div>
               </button>
-               <button onClick={() => setIntroGameKey('seriation_hidden_step')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isHiddenStepCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-orange-400 hover:bg-orange-500'}`}>
+               <button onClick={() => setIntroGameKey('seriation_hidden_step')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 w-72 ${isHiddenStepCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-orange-400 hover:bg-orange-500'}`}>
                   {isHiddenStepCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
                   <div className="flex items-center justify-center gap-3">
                     <StairsIcon className="w-7 h-7" />
                     <span className="font-bold">El Peldaño Escondido</span>
                   </div>
               </button>
-               <button onClick={() => setIntroGameKey('seriation_color_snake')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 ${isColorSnakeCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-purple-400 hover:bg-purple-500'}`}>
+               <button onClick={() => setIntroGameKey('seriation_color_snake')} className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 w-72 ${isColorSnakeCompleted ? 'bg-slate-400 hover:bg-slate-500' : 'bg-purple-400 hover:bg-purple-500'}`}>
                   {isColorSnakeCompleted && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
                   <div className="flex items-center justify-center gap-3">
                     <SnakeIcon className="w-7 h-7" />
@@ -846,6 +913,31 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
                   </div>
               </button>
             </div>
+
+            <div className="w-full max-w-2xl my-8 flex items-center gap-4">
+                <div className="flex-grow border-t-2 border-slate-400"></div>
+                <h2 className="text-lg font-bold text-slate-600 tracking-wider px-4">SITUACIONES DIDÁCTICAS</h2>
+                <div className="flex-grow border-t-2 border-slate-400"></div>
+            </div>
+
+            <p className="text-sm text-slate-500 italic -mt-6 mb-6 text-center">Debes estar registrado para jugar en las Situaciones Didácticas</p>
+
+            <button
+                onClick={() => !isKiteGameDisabled && setIntroGameKey('seriation_kite_game')}
+                disabled={isKiteGameDisabled}
+                title={isKiteGameDisabled ? "Debes iniciar sesión para jugar esta Situación Didáctica" : ""}
+                className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 w-72 ${
+                    isKiteGameCompleted && !isKiteGameDisabled ? 'bg-slate-400 hover:bg-slate-500' :
+                    isKiteGameDisabled ? 'bg-slate-400 cursor-not-allowed opacity-70' : 'bg-cyan-400 hover:bg-cyan-500'
+                }`}
+            >
+                {isKiteGameCompleted && !isKiteGameDisabled && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                {isKiteGameDisabled && <LockIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                <div className="flex items-center justify-center gap-3">
+                    <KiteIcon className="w-7 h-7" />
+                    <span className="font-bold">El Volantín</span>
+                </div>
+            </button>
           </div>
         );
       case 'classification-games':
@@ -953,7 +1045,7 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
              <h1 className="text-5xl font-bold text-sky-700 mb-4">¡Bienvenido al Bosque Mágico!</h1>
              <p className="text-xl text-slate-600 max-w-2xl md:max-w-4xl mb-12">Explora y aprende los secretos para pensar como un matemático.</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 <div 
                     onClick={() => setActiveGame('classification-games')}
                     className="p-8 bg-white/70 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer"
@@ -967,6 +1059,11 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
                  >
                     <h2 className="text-3xl font-bold text-sky-600 mb-3">Seriación</h2>
                     <p className="text-slate-600">Ordena objetos en una secuencia lógica, como del más pequeño al más grande.</p>
+                </div>
+                <div className="p-8 bg-white/50 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg opacity-60 cursor-not-allowed">
+                    <h2 className="text-3xl font-bold text-emerald-600 mb-3">Correspondencia</h2>
+                    <p className="text-slate-600">Relaciona elementos de un conjunto con otro, uno a uno.</p>
+                     <span className="inline-block mt-4 px-3 py-1 bg-emerald-200 text-emerald-800 text-sm font-semibold rounded-full">Próximamente</span>
                 </div>
                 <div className="p-8 bg-white/50 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg opacity-60 cursor-not-allowed">
                     <h2 className="text-3xl font-bold text-amber-600 mb-3">Conservación</h2>

@@ -101,7 +101,7 @@ export interface ActivityLogEntry {
   pointsEarned?: number;
 }
 
-export type CareerOption = 'Educación Parvularia' | 'Pedagogía en Educación Diferencial' | 'Pedagogía en Educación Básica';
+export type CareerOption = 'Educación Parvularia' | 'Pedagogía en Educación Diferencial' | 'Pedagogía en Educación Básica' | 'Diplomado en Didáctica de la Matemática';
 
 export type SectionOption = 'Sección 1' | 'Sección 2' | 'Sección 3';
 
@@ -114,6 +114,7 @@ export interface UserProfile {
   section: SectionOption;
   score: number;
   unlockedAchievements: Record<string, boolean>;
+  rank?: number;
   // completed_levels is now deprecated and will be calculated from performance_logs
 }
 

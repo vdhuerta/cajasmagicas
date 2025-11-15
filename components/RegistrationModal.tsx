@@ -15,7 +15,8 @@ interface RegistrationModalProps {
 const careerOptions: CareerOption[] = [
     'Educación Parvularia',
     'Pedagogía en Educación Diferencial',
-    'Pedagogía en Educación Básica'
+    'Pedagogía en Educación Básica',
+    'Diplomado en Didáctica de la Matemática'
 ];
 
 const sectionOptions: SectionOption[] = [

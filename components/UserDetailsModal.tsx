@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserProfile, PerformanceLog } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
-import { ALL_ACHIEVEMENTS, GAME_NAME_TRANSLATIONS, LEVEL_NAME_TRANSLATIONS, PEDAGOGICAL_KNOWLEDGE_BASE, GAME_SKILL_MAP, LEVEL_SKILL_MAP, CLASSIFICATION_SKILLS, SERIATION_SUB_SKILLS } from '../constants';
+import { ALL_ACHIEVEMENTS, GAME_NAME_TRANSLATIONS, LEVEL_NAME_TRANSLATIONS, PEDAGOGICAL_KNOWLEDGE_BASE, ACTIVITY_SKILL_MAP, CLASSIFICATION_SKILLS, SERIATION_SUB_SKILLS } from '../constants';
 import RadarChart from './RadarChart';
 import { StarIcon } from './icons/StarIcon';
 import { WarningIcon } from './icons/WarningIcon';
@@ -171,17 +171,23 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ user, onClose }) =>
         
         const skillData: Record<string, { totalIncorrect: number; count: number; totalItems: number }> = {};
         
-        logs.forEach(log => {
-            const skill = LEVEL_SKILL_MAP[log.level_name] || GAME_SKILL_MAP[log.game_name] || 'Otros';
-            if (!skillData[skill]) {
-                skillData[skill] = { totalIncorrect: 0, count: 0, totalItems: 0 };
-            }
-            skillData[skill].totalIncorrect += log.incorrect_attempts;
-            skillData[skill].count += 1;
-            skillData[skill].totalItems += log.total_items || 0;
+        // Pre-initialize all skills to ensure they appear on the chart
+        [...CLASSIFICATION_SKILLS, ...SERIATION_SUB_SKILLS].forEach(skill => {
+            skillData[skill] = { totalIncorrect: 0, count: 0, totalItems: 0 };
         });
 
-        const classificationPerformanceData = CLASSIFICATION_SKILLS.map(skill => {
+        logs.forEach(log => {
+            const skill = ACTIVITY_SKILL_MAP[log.level_name];
+            if (skill && skillData[skill]) {
+                skillData[skill].totalIncorrect += log.incorrect_attempts;
+                skillData[skill].count += 1;
+                skillData[skill].totalItems += log.total_items || 0;
+            }
+        });
+
+        const classificationDisplaySkills = CLASSIFICATION_SKILLS.filter(s => s !== 'Clasificación por Atributos');
+
+        const classificationPerformanceData = classificationDisplaySkills.map(skill => {
             const data = skillData[skill];
             const value = (data && data.totalItems > 0) ? Math.max(0, (data.totalItems - data.totalIncorrect) / data.totalItems) : 0;
             return { label: skill, value };
@@ -205,19 +211,22 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ user, onClose }) =>
             const knowledge = PEDAGOGICAL_KNOWLEDGE_BASE[skill];
             if (knowledge) {
                 const data = skillData[skill];
-                const precision = (data && data.totalItems > 0) ? (data.totalItems - data.totalIncorrect) / data.totalItems : 0;
-                
-                if (precision >= 0.9) {
-                    pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.strength, type: 'strength' });
-                } else if (precision >= 0.6) {
-                    pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.consolidating, type: 'consolidating' });
-                } else {
-                    pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.opportunity, type: 'opportunity' });
+                // Only generate insights for skills that have been practiced
+                if (data && data.count > 0) {
+                    const precision = data.totalItems > 0 ? (data.totalItems - data.totalIncorrect) / data.totalItems : 0;
+                    
+                    if (precision >= 0.9) {
+                        pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.strength, type: 'strength' });
+                    } else if (precision >= 0.6) {
+                        pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.consolidating, type: 'consolidating' });
+                    } else {
+                        pedagogicalInsights.push({ skill, ...knowledge.feedbackRules.opportunity, type: 'opportunity' });
+                    }
                 }
             }
         });
         
-        const classificationInsights = pedagogicalInsights.filter(i => CLASSIFICATION_SKILLS.includes(i.skill));
+        const classificationInsights = pedagogicalInsights.filter(i => classificationDisplaySkills.includes(i.skill));
         const seriationInsights = pedagogicalInsights.filter(i => SERIATION_SUB_SKILLS.includes(i.skill));
         
         const completedActivitiesSet = new Set(logs.map(log => log.level_name));
@@ -230,7 +239,10 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ user, onClose }) =>
         
         const playedSeriationGames = new Set(
             logs
-                .filter(log => SERIATION_SUB_SKILLS.includes(LEVEL_SKILL_MAP[log.level_name]))
+                .filter(log => {
+                    const skill = ACTIVITY_SKILL_MAP[log.level_name];
+                    return skill && SERIATION_SUB_SKILLS.includes(skill);
+                })
                 .map(log => log.level_name)
         );
 

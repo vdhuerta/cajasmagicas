@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { UserProfile } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -13,9 +12,9 @@ interface RankingProps {
 const Ranking: React.FC<RankingProps> = ({ users, currentUser, onClose }) => {
   
   const getRankColor = (rank: number) => {
-      if (rank === 0) return 'text-amber-500 bg-amber-100'; // Gold
-      if (rank === 1) return 'text-slate-500 bg-slate-200'; // Silver
-      if (rank === 2) return 'text-amber-700 bg-amber-200'; // Bronze
+      if (rank === 1) return 'text-amber-500 bg-amber-100'; // Gold
+      if (rank === 2) return 'text-slate-500 bg-slate-200'; // Silver
+      if (rank === 3) return 'text-amber-700 bg-amber-200'; // Bronze
       return 'text-slate-600 bg-slate-100';
   };
 
@@ -23,6 +22,9 @@ const Ranking: React.FC<RankingProps> = ({ users, currentUser, onClose }) => {
     if (!name || name.length <= 1) return name || '';
     return name.charAt(0) + '*'.repeat(name.length - 1);
   };
+  
+  // Detect if the specially added current user is present
+  const currentUserOutOfRank = users.find(u => u.id === currentUser?.id && u.rank && u.rank > users.length -1);
 
   return (
     <div className="fixed inset-0 bg-slate-800 bg-opacity-60 flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
@@ -37,11 +39,14 @@ const Ranking: React.FC<RankingProps> = ({ users, currentUser, onClose }) => {
         <div className="flex-grow overflow-y-auto pr-2">
             <ul className="space-y-3">
                 {users.map((user, index) => {
+                    if (user.id === currentUserOutOfRank?.id) return null; // Don't render it in the main list
+                    
                     const isCurrentUser = user.id === currentUser?.id;
+                    const rank = user.rank || index + 1;
                     return (
                         <li key={user.id} className={`flex items-center p-3 rounded-lg transition-all ${isCurrentUser ? 'bg-sky-100 border-2 border-sky-400 scale-105' : 'bg-white shadow-sm'}`}>
-                            <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${getRankColor(index)}`}>
-                                {index + 1}
+                            <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${getRankColor(rank)}`}>
+                                {rank}
                             </div>
                             <div className="ml-4 flex-grow">
                                 <p className="font-bold text-slate-800">{anonymizeName(user.firstName)} {anonymizeName(user.lastName)}</p>
@@ -53,6 +58,25 @@ const Ranking: React.FC<RankingProps> = ({ users, currentUser, onClose }) => {
                         </li>
                     );
                 })}
+
+                {currentUserOutOfRank && (
+                    <>
+                        <li className="text-center text-slate-400 font-bold text-2xl tracking-widest">...</li>
+                        <li className="flex items-center p-3 rounded-lg bg-sky-100 border-2 border-sky-400 scale-105">
+                             <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${getRankColor(currentUserOutOfRank.rank!)}`}>
+                                {currentUserOutOfRank.rank}
+                            </div>
+                            <div className="ml-4 flex-grow">
+                                <p className="font-bold text-slate-800">{anonymizeName(currentUserOutOfRank.firstName)} {anonymizeName(currentUserOutOfRank.lastName)}</p>
+                                <p className="text-sm text-slate-500">{currentUserOutOfRank.career}</p>
+                            </div>
+                            <div className="font-bold text-xl text-sky-700">
+                                {currentUserOutOfRank.score.toLocaleString('es-ES')} pts
+                            </div>
+                        </li>
+                    </>
+                )}
+
                  {users.length === 0 && (
                     <div className="text-center text-slate-500 pt-10">
                         <p>¡Aún no hay nadie en la clasificación!</p>
