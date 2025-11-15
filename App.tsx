@@ -824,7 +824,7 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
     'seriation_kite_game': {
       title: "El Volantín Atrapado",
       story: "¡Ayuda a Jorge a construir la estructura correcta para alcanzar su volantín! Debes encontrar el atributo 'oculto' de las regletas para ordenarlas.",
-      instructions: "Arrastra las regletas al área de construcción para formar una escalera horizontal. La estructura debe tener coherencia para que Jorge pueda subir. ¡Ordena de la más grande a la más pequeña!",
+      instructions: "Arrastra las regletas al área de construcción para formar una escalera horizontal. La estructura debe tener coherencia para que Jorge pueda subir.",
       buttonText: "¡A rescatar el volantín!",
       Icon: KiteIcon,
       theme: { text: 'text-cyan-800', buttonBg: 'bg-cyan-500', buttonHoverBg: 'hover:bg-cyan-600', iconText: 'text-cyan-500', bg: 'bg-cyan-50', audioHover: 'hover:bg-cyan-100', audioText: 'text-cyan-700' },
