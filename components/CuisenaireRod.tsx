@@ -4,14 +4,15 @@ import { CuisenaireRodType } from '../types';
 interface CuisenaireRodProps {
   rod: CuisenaireRodType;
   onClick?: () => void;
+  orientation?: 'vertical' | 'horizontal';
 }
 
-const CuisenaireRod: React.FC<CuisenaireRodProps> = ({ rod, onClick }) => {
+const CuisenaireRod: React.FC<CuisenaireRodProps> = ({ rod, onClick, orientation = 'vertical' }) => {
   const { id, value, colorName, colorHex } = rod;
 
-  // Base unit for height, e.g., 20px per unit value. Fixed width.
-  const height = value * 20;
-  const width = 20;
+  const isVertical = orientation === 'vertical';
+  const height = isVertical ? value * 20 : 20;
+  const width = isVertical ? 20 : value * 20;
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     // Using a common key to maintain compatibility with existing touch handlers

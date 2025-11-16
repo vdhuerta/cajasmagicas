@@ -27,6 +27,8 @@ import { SnakeIcon } from './components/icons/SnakeIcon';
 import { StairsDownIcon } from './components/icons/StairsDownIcon';
 import { KiteIcon } from './components/icons/KiteIcon';
 import { LockIcon } from './components/icons/LockIcon';
+import { BridgeIcon } from './components/icons/BridgeIcon';
+
 
 // Lazy load components for better performance
 // FIX: Replaced invalid alias 'a' with 'React'. This fix is applied to all React hooks and components below.
@@ -40,6 +42,7 @@ const SeriationGame = React.lazy(() => import('./components/SeriationGame'));
 const HiddenStepGame = React.lazy(() => import('./components/HiddenStepGame'));
 const ColorSnakeGame = React.lazy(() => import('./components/ColorSnakeGame'));
 const KiteGame = React.lazy(() => import('./components/KiteGame'));
+const BridgeBuilderGame = React.lazy(() => import('./components/BridgeBuilderGame'));
 const Achievements = React.lazy(() => import('./components/Achievements'));
 const Menu = React.lazy(() => import('./components/Menu'));
 const ClassificationLevelModal = React.lazy(() => import('./components/ClassificationLevelModal'));
@@ -56,7 +59,7 @@ const PerformanceDashboard = React.lazy(() => import('./components/PerformanceDa
 const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
 
 
-type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort' | 'seriation-games' | 'seriation' | 'hidden-step' | 'color-snake' | 'kite-game';
+type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort' | 'seriation-games' | 'seriation' | 'hidden-step' | 'color-snake' | 'kite-game' | 'bridge-builder';
 
 const GameLoading: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center">
@@ -127,7 +130,7 @@ const App: React.FC = () => {
         // Fetch top 100 users for the main ranking
         const { data: topUsersData, error } = await supabase
           .from('usuarios')
-          .select('id, firstName, lastName, career, score')
+          .select('id, firstName, lastName, career, section, score')
           .order('score', { ascending: false })
           .limit(100);
         
@@ -532,6 +535,7 @@ CREATE POLICY "Users can update their own profile" ON public.usuarios FOR UPDATE
       'hidden-step': 'El Peldaño Escondido',
       'color-snake': 'La Serpiente de Colores',
       'kite-game': 'SD El Volantín',
+      'bridge-builder': 'El Puente',
       'home': 'Inicio',
       'classification-games': 'Juegos de Clasificación',
       'classification': 'Clasificación',
@@ -830,6 +834,15 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
       theme: { text: 'text-cyan-800', buttonBg: 'bg-cyan-500', buttonHoverBg: 'hover:bg-cyan-600', iconText: 'text-cyan-500', bg: 'bg-cyan-50', audioHover: 'hover:bg-cyan-100', audioText: 'text-cyan-700' },
       onStart: () => handleStartGame('kite-game'),
     },
+     'bridge-builder': {
+      title: "El Puente",
+      story: "¡¡Nuestros enemigos han derribado el PUENTE del castillo!! Para poder cruzar el río y entrar, necesitamos reconstruirlo. ¡Pero atención! No podemos usar piezas al azar: debemos seguir las instrucciones secretas.",
+      instructions: "Construye 4 carriles de puente. ¡Luego, envía el CÓDIGO secreto de tu construcción al castillo para que los enemigos no sepan cómo lo hiciste! Puedes usar cada tipo de regleta hasta 3 veces.",
+      buttonText: "¡A TRABAJAR!",
+      Icon: BridgeIcon,
+      theme: { text: 'text-amber-800', buttonBg: 'bg-amber-500', buttonHoverBg: 'hover:bg-amber-600', iconText: 'text-amber-500', bg: 'bg-amber-50', audioHover: 'hover:bg-amber-100', audioText: 'text-amber-700' },
+      onStart: () => handleStartGame('bridge-builder'),
+    },
   };
 
   const renderGame = () => {
@@ -854,6 +867,8 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
         return <ColorSnakeGame onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'kite-game':
         return <KiteGame onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
+      case 'bridge-builder':
+        return <BridgeBuilderGame onGoHome={() => setActiveGame('seriation-games')} onUnlockAchievement={unlockAchievement} logActivity={logActivity} addScore={addScore} completedActivities={completedActivities} logPerformance={logPerformance} />;
       case 'achievements':
         return <Achievements unlockedAchievements={currentUser?.unlockedAchievements || {}} />;
       case 'seriation-games':
@@ -864,7 +879,8 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
         const isHiddenStepCompleted = completedActivities.has('hidden_step_game');
         const isColorSnakeCompleted = completedActivities.has('color_snake_game');
         const isKiteGameCompleted = completedActivities.has('seriation_kite_game');
-        const isKiteGameDisabled = !currentUser;
+        const isBridgeBuilderCompleted = completedActivities.has('bridge_builder_game');
+        const isSituationalGameDisabled = !currentUser;
         return (
           <div className="flex flex-col items-center justify-center h-full text-center">
              <h1 className="text-5xl font-bold text-sky-700 mb-4">Juegos de Seriación</h1>
@@ -921,23 +937,42 @@ CREATE POLICY "Allow users to delete their own logs" ON public.performance_logs 
             </div>
 
             <p className="text-sm text-slate-500 italic -mt-6 mb-6 text-center">Debes estar registrado para jugar en las Situaciones Didácticas</p>
+            
+            <div className="flex flex-wrap items-center justify-center gap-6">
+              <button
+                  onClick={() => !isSituationalGameDisabled && setIntroGameKey('bridge-builder')}
+                  disabled={isSituationalGameDisabled}
+                  title={isSituationalGameDisabled ? "Debes iniciar sesión para jugar esta Situación Didáctica" : ""}
+                  className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 w-72 ${
+                      isBridgeBuilderCompleted && !isSituationalGameDisabled ? 'bg-slate-400 hover:bg-slate-500' :
+                      isSituationalGameDisabled ? 'bg-slate-400 cursor-not-allowed opacity-70' : 'bg-amber-400 hover:bg-amber-500'
+                  }`}
+              >
+                  {isBridgeBuilderCompleted && !isSituationalGameDisabled && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                  {isSituationalGameDisabled && <LockIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                  <div className="flex items-center justify-center gap-3">
+                      <BridgeIcon className="w-7 h-7" />
+                      <span className="font-bold">El Puente</span>
+                  </div>
+              </button>
 
-            <button
-                onClick={() => !isKiteGameDisabled && setIntroGameKey('seriation_kite_game')}
-                disabled={isKiteGameDisabled}
-                title={isKiteGameDisabled ? "Debes iniciar sesión para jugar esta Situación Didáctica" : ""}
-                className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 w-72 ${
-                    isKiteGameCompleted && !isKiteGameDisabled ? 'bg-slate-400 hover:bg-slate-500' :
-                    isKiteGameDisabled ? 'bg-slate-400 cursor-not-allowed opacity-70' : 'bg-cyan-400 hover:bg-cyan-500'
-                }`}
-            >
-                {isKiteGameCompleted && !isKiteGameDisabled && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
-                {isKiteGameDisabled && <LockIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
-                <div className="flex items-center justify-center gap-3">
-                    <KiteIcon className="w-7 h-7" />
-                    <span className="font-bold">El Volantín</span>
-                </div>
-            </button>
+              <button
+                  onClick={() => !isSituationalGameDisabled && setIntroGameKey('seriation_kite_game')}
+                  disabled={isSituationalGameDisabled}
+                  title={isSituationalGameDisabled ? "Debes iniciar sesión para jugar esta Situación Didáctica" : ""}
+                  className={`relative px-8 py-4 text-white rounded-xl shadow-lg transition-transform transform hover:scale-105 w-72 ${
+                      isKiteGameCompleted && !isSituationalGameDisabled ? 'bg-slate-400 hover:bg-slate-500' :
+                      isSituationalGameDisabled ? 'bg-slate-400 cursor-not-allowed opacity-70' : 'bg-cyan-400 hover:bg-cyan-500'
+                  }`}
+              >
+                  {isKiteGameCompleted && !isSituationalGameDisabled && <CheckCircleIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                  {isSituationalGameDisabled && <LockIcon className="absolute top-2 right-2 w-6 h-6 text-white/80" />}
+                  <div className="flex items-center justify-center gap-3">
+                      <KiteIcon className="w-7 h-7" />
+                      <span className="font-bold">El Volantín</span>
+                  </div>
+              </button>
+            </div>
           </div>
         );
       case 'classification-games':

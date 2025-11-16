@@ -52,6 +52,24 @@ export const PEDAGOGICAL_KNOWLEDGE_BASE: Record<string, {
             }
         }
     },
+    'Composición/Descomposición Numérica': {
+        description: 'Habilidad para entender que un número se puede formar por la suma de otros números de diferentes maneras.',
+        games: ['BridgeBuilder'],
+        feedbackRules: {
+            strength: {
+                message: "¡Excelente! Descompone números de múltiples formas con flexibilidad, adaptándose a las restricciones de recursos.",
+                recommendation: "Proponer desafíos de composición con números más grandes (ej. 20) o con más restricciones en las piezas disponibles."
+            },
+            consolidating: {
+                message: "Logra encontrar combinaciones que suman el total, a menudo por ensayo y error, y puede necesitar reintentar cuando se agotan las piezas preferidas.",
+                recommendation: "Animar a planificar y buscar más de una forma de construir el mismo número antes de empezar a colocar las piezas."
+            },
+            opportunity: {
+                message: "Se enfoca en encontrar una sola solución y puede tener dificultades para adaptarse cuando las piezas que busca ya no están disponibles. El conteo de las sumas puede ser impreciso.",
+                recommendation: "Practicar la descomposición de números más pequeños (como 10) con regletas de forma libre, explorando todas las combinaciones posibles."
+            }
+        }
+    },
     'Seriación por Patrones': {
         description: 'Habilidad para identificar y extender patrones cualitativos que se repiten (ej. AAB, ABCB).',
         games: ['Seriation', 'ColorSnake'],
@@ -161,11 +179,12 @@ export const ACTIVITY_SKILL_MAP: Record<string, string> = {
     'inventory_expert': 'Conteo y Correspondencia',
     'treasure_sort_game': 'Clasificación por Atributos',
 
-    // Noción de Seriación
+    // Noción de Seriación y Composición
     'seriation_ascending': 'Seriación Ordinal',
     'seriation_descending': 'Seriación Ordinal',
     'seriation_growth-pattern': 'Seriación Ordinal',
     'seriation_kite_game': 'Seriación Ordinal',
+    'bridge_builder_game': 'Composición/Descomposición Numérica',
     'seriation_abc-pattern': 'Seriación por Patrones',
     'color_snake_game': 'Seriación por Patrones',
     'hidden_step_game': 'Completar Secuencias',
@@ -174,7 +193,7 @@ export const ACTIVITY_SKILL_MAP: Record<string, string> = {
 
 // Habilidades agrupadas para los paneles de desempeño.
 export const CLASSIFICATION_SKILLS = ['Clasificación por Atributos', 'Memoria y Atención', 'Atención y Percepción', 'Conteo y Correspondencia'];
-export const SERIATION_SUB_SKILLS = ['Seriación Ordinal', 'Seriación por Patrones', 'Completar Secuencias'];
+export const SERIATION_SUB_SKILLS = ['Seriación Ordinal', 'Seriación por Patrones', 'Completar Secuencias', 'Composición/Descomposición Numérica'];
 
 
 // Traduce los nombres internos de los juegos a español para la UI.
@@ -189,6 +208,7 @@ export const GAME_NAME_TRANSLATIONS: Record<string, string> = {
     'HiddenStep': 'El Peldaño Escondido',
     'ColorSnake': 'La Serpiente de Colores',
     'KiteGame': 'SD El Volantín',
+    'BridgeBuilder': 'El Puente',
 };
 
 // Traduce los IDs de los niveles a español para la UI.
@@ -212,6 +232,7 @@ export const LEVEL_NAME_TRANSLATIONS: Record<string, string> = {
     'hidden_step_game': 'Partida Única',
     'color_snake_game': 'Partida Única',
     'seriation_kite_game': 'SD El Volantín',
+    'bridge_builder_game': 'El Puente',
 };
 
 export const DIRECTIVA_SERIES = {
@@ -496,5 +517,6 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
     { id: 'SERIATION_HIDDEN_STEP_WIN', name: 'Detective de Secuencias', description: 'Completa el juego El Peldaño Escondido.' },
     { id: 'SERIATION_COLOR_SNAKE_WIN', name: 'Encantador de Serpientes', description: 'Completa el juego La Serpiente de Colores.' },
     { id: 'SERIATION_KITE_WIN', name: 'Rescatista de Volantines', description: 'Completa la situación didáctica El Volantín.' },
+    { id: 'BRIDGE_BUILDER_WIN', name: 'Ingeniero del Castillo', description: 'Reconstruye el puente del castillo y envía el código secreto.' },
     { id: 'GEMINI_NAME', name: '¡Poder Mágico!', description: 'Usa la magia de la IA para nombrar una caja.' },
 ];

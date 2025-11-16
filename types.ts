@@ -159,3 +159,5 @@ export interface CuisenaireRodType {
 }
 
 export type SeriationChallengeType = 'ascending' | 'descending' | 'abc-pattern' | 'growth-pattern';
+
+export type Game = 'home' | 'classification-games' | 'classification' | 'matching' | 'odd-one-out' | 'achievements' | 'venn-diagram' | 'inventory' | 'treasure-sort' | 'seriation-games' | 'seriation' | 'hidden-step' | 'color-snake' | 'kite-game' | 'bridge-builder';

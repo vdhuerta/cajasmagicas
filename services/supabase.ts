@@ -27,7 +27,13 @@ let supabase: SupabaseClient | null = null;
 // en la base de datos de Supabase.
 if (supabaseUrl && supabaseAnonKey && supabaseUrl.includes('.supabase.co')) {
     try {
-        supabase = createClient(supabaseUrl, supabaseAnonKey);
+        supabase = createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                autoRefreshToken: true,
+                persistSession: true,
+                detectSessionInUrl: true,
+            },
+        });
     } catch (error) {
         console.error("Error al inicializar el cliente de Supabase:", error);
     }
